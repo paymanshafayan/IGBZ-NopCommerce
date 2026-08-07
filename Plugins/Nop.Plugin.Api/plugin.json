@@ -1,0 +1,13 @@
+{
+  "Group": "Mobile & AI Services",
+  "FriendlyName": "REST & GraphQL Mobile API",
+  "SystemName": "Api",
+  "Version": "1.00",
+  "SupportedVersions": [
+    "4.90"
+  ],
+  "Author": "AI Studio Engineering Team",
+  "DisplayOrder": 2,
+  "FileName": "Nop.Plugin.Api.dll",
+  "Description": "پلاگین جامع API برای اپلیکیشن مدیریت اندروید/iOS، FCM Push Notifications، هوش مصنوعی و وب‌هوک‌های لحظه‌ای بر روی nopCommerce 4.90"
+}

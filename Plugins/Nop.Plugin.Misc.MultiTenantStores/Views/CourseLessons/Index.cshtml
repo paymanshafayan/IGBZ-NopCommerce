@@ -1,0 +1,74 @@
+@model System.Collections.Generic.IList<Nop.Plugin.Misc.MultiTenantStores.Domain.CourseLesson>
+@{
+    Layout = "_AdminLayout";
+    ViewBag.PageTitle = "سرفصل‌های دوره";
+    var productId = (int)ViewBag.ProductId;
+    var productName = (string)ViewBag.ProductName;
+}
+
+<div class="content-header clearfix">
+    <h1 class="float-left">سرفصل‌های دوره: @productName</h1>
+    <div class="float-right">
+        <a class="btn btn-secondary" asp-controller="CourseQuizQuestions" asp-action="Index" asp-route-productId="@productId">
+            <i class="fas fa-question-circle"></i> مدیریت سوالات آزمون همین دوره
+        </a>
+    </div>
+</div>
+
+@Html.AntiForgeryToken()
+
+<div class="content">
+    <div class="card card-default mb-3">
+        <div class="card-body">
+            <h4>افزودن سرفصل جدید</h4>
+            <form asp-action="Create" method="post">
+                <input type="hidden" name="productId" value="@productId" />
+                <div class="form-row">
+                    <div class="col"><input type="text" name="title" class="form-control" placeholder="عنوان درس" required /></div>
+                    <div class="col"><input type="number" name="durationMinutes" class="form-control" placeholder="مدت (دقیقه)" /></div>
+                    <div class="col"><input type="text" name="vodVideoPath" class="form-control" placeholder="مسیر ویدیو نزد VOD" /></div>
+                    <div class="col"><input type="text" name="attachmentUrl" class="form-control" placeholder="لینک پیوست (اختیاری)" /></div>
+                    <div class="col-auto d-flex align-items-center">
+                        <label><input type="checkbox" name="isFreePreview" value="true" /> پیش‌نمایش رایگان</label>
+                    </div>
+                    <div class="col-auto"><button type="submit" class="btn btn-primary">افزودن</button></div>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <div class="card card-default">
+        <div class="card-body">
+            <table class="table table-bordered">
+                <thead>
+                    <tr>
+                        <th>ترتیب</th><th>عنوان</th><th>مدت</th><th>پیش‌نمایش رایگان</th><th>عملیات</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @if (!Model.Any())
+                    {
+                        <tr><td colspan="5" class="text-center text-muted">هنوز سرفصلی ثبت نشده.</td></tr>
+                    }
+                    @foreach (var lesson in Model)
+                    {
+                        <tr>
+                            <td>@lesson.DisplayOrder</td>
+                            <td>@lesson.Title</td>
+                            <td>@lesson.DurationMinutes دقیقه</td>
+                            <td>@(lesson.IsFreePreview ? "بله" : "خیر")</td>
+                            <td>
+                                <form asp-action="Delete" method="post" style="display:inline"
+                                      onsubmit="return confirm('حذف این سرفصل قطعی است؟');">
+                                    <input type="hidden" name="id" value="@lesson.Id" />
+                                    <input type="hidden" name="productId" value="@productId" />
+                                    <button type="submit" class="btn btn-danger btn-sm">حذف</button>
+                                </form>
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>

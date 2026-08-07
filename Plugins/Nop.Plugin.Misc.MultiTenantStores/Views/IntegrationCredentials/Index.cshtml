@@ -1,0 +1,120 @@
+@model Nop.Plugin.Misc.MultiTenantStores.Models.IntegrationCredentialListModel
+@{
+    Layout = "_AdminLayout";
+    ViewBag.PageTitle = "اتصالات سرویس‌های بیرونی";
+}
+
+<div class="content-header clearfix">
+    <h1 class="float-left">اتصالات سرویس‌های بیرونی (Integration Credentials)</h1>
+    <div class="float-right">
+        <a asp-action="Create" class="btn btn-primary">
+            <i class="fas fa-plus-square"></i> افزودن اعتبارنامهٔ جدید
+        </a>
+    </div>
+</div>
+
+@Html.AntiForgeryToken()
+
+<div class="content">
+    <div class="form-horizontal">
+        <div class="cards-group">
+            <div class="card card-default">
+                <div class="card-body">
+                    <p class="text-muted">
+                        هر سرویس بیرونی (درگاه پرداخت، مارکت‌پلیس، AI، پیامک و ...) تا وقتی رکورد
+                        فعال و «تست‌شده» نداشته باشد، عملیات را با خطای صریح رد می‌کند — نه با
+                        موفقیت جعلی. دکمهٔ «تست اتصال» فقط در‌دسترس‌بودن سرور را می‌سنجد، صحت
+                        کامل کلید API را فقط اولین تراکنش واقعی نشان می‌دهد.
+                    </p>
+
+                    <table class="table table-bordered">
+                        <thead>
+                            <tr>
+                                <th>Provider</th>
+                                <th>وضعیت فعال</th>
+                                <th>آخرین تست اتصال</th>
+                                <th>نتیجهٔ آخرین تست</th>
+                                <th>عملیات</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @if (!Model.Credentials.Any())
+                            {
+                                <tr>
+                                    <td colspan="5" class="text-center text-muted">
+                                        هنوز هیچ اعتبارنامه‌ای برای این فروشگاه ثبت نشده است.
+                                    </td>
+                                </tr>
+                            }
+                            @foreach (var item in Model.Credentials)
+                            {
+                                <tr data-credential-id="@item.Id">
+                                    <td>@item.ProviderKey</td>
+                                    <td>
+                                        @if (item.IsActive)
+                                        {
+                                            <span class="badge badge-success">فعال</span>
+                                        }
+                                        else
+                                        {
+                                            <span class="badge badge-secondary">غیرفعال</span>
+                                        }
+                                        @if (item.IsVerified)
+                                        {
+                                            <span class="badge badge-info">دردسترس (تست‌شده)</span>
+                                        }
+                                    </td>
+                                    <td>@(item.LastTestedOnUtc?.ToString("yyyy/MM/dd HH:mm") ?? "—")</td>
+                                    <td class="test-result-cell">@item.LastTestResultMessage</td>
+                                    <td>
+                                        <a asp-action="Edit" asp-route-id="@item.Id" class="btn btn-info btn-sm">ویرایش</a>
+                                        <button type="button" class="btn btn-warning btn-sm btn-test-connection" data-id="@item.Id">
+                                            تست اتصال
+                                        </button>
+                                        <form asp-action="Delete" asp-route-id="@item.Id" method="post" style="display:inline"
+                                              onsubmit="return confirm('حذف این اعتبارنامه قطعی است. ادامه می‌دهید؟');">
+                                            <button type="submit" class="btn btn-danger btn-sm">حذف</button>
+                                        </form>
+                                    </td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+@section Scripts
+{
+    <script>
+        document.addEventListener('DOMContentLoaded', function () {
+            document.querySelectorAll('.btn-test-connection').forEach(function (btn) {
+                btn.addEventListener('click', function () {
+                    var id = btn.getAttribute('data-id');
+                    var row = document.querySelector('tr[data-credential-id="' + id + '"]');
+                    var resultCell = row.querySelector('.test-result-cell');
+                    btn.disabled = true;
+                    resultCell.textContent = 'در حال تست اتصال واقعی...';
+
+                    var formData = new FormData();
+                    formData.append('id', id);
+                    var tokenInput = document.querySelector('input[name="__RequestVerificationToken"]');
+                    if (tokenInput) formData.append('__RequestVerificationToken', tokenInput.value);
+
+                    fetch('@Url.Action("TestConnection")', { method: 'POST', body: formData })
+                        .then(function (r) { return r.json(); })
+                        .then(function (data) {
+                            resultCell.textContent = data.message;
+                            btn.disabled = false;
+                        })
+                        .catch(function (err) {
+                            resultCell.textContent = 'خطا در فراخوانی: ' + err;
+                            btn.disabled = false;
+                        });
+                });
+            });
+        });
+    </script>
+}

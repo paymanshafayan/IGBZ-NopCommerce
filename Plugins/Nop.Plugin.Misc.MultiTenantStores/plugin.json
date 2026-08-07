@@ -1,0 +1,13 @@
+{
+  "Group": "Multi-Tenant SaaS",
+  "FriendlyName": "Multi-Tenant Stores & Domain Mapper",
+  "SystemName": "Misc.MultiTenantStores",
+  "Version": "1.00",
+  "SupportedVersions": [
+    "4.90"
+  ],
+  "Author": "AI Studio Engineering Team",
+  "DisplayOrder": 1,
+  "FileName": "Nop.Plugin.Misc.MultiTenantStores.dll",
+  "Description": "پلاگین زیرساختی مدیریت چندفروشگاهی، نگاشت دامنه‌ها، SSL اختصاصی و مدیریت اشتراک‌های SaaS بر روی nopCommerce 4.90 .NET 9"
+}

@@ -1,0 +1,65 @@
+@model System.Collections.Generic.IList<Nop.Plugin.Misc.MultiTenantStores.Domain.TenantPlan>
+@{
+    Layout = "_AdminLayout";
+    ViewBag.PageTitle = "پلن‌های اشتراکی";
+}
+
+<div class="content-header clearfix">
+    <h1 class="float-left">پلن‌های اشتراکی سایت مادر</h1>
+    <div class="float-right">
+        <a class="btn btn-secondary" asp-controller="LandingContentBlocks" asp-action="Index">
+            <i class="fas fa-file-alt"></i> بلوک‌های محتوایی سایت مادر
+        </a>
+        <a class="btn btn-primary" asp-action="Create">
+            <i class="fas fa-plus"></i> افزودن پلن جدید
+        </a>
+    </div>
+</div>
+
+<div class="content">
+    <div class="card card-default">
+        <div class="card-body">
+            <table class="table table-bordered">
+                <thead>
+                    <tr>
+                        <th>ترتیب</th>
+                        <th>نام</th>
+                        <th>ماهانه</th>
+                        <th>۶ماهه</th>
+                        <th>سالانه</th>
+                        <th>اپلیکیشن</th>
+                        <th>دستیار اینستا</th>
+                        <th>Pro</th>
+                        <th>آزمایشی (روز)</th>
+                        <th>فعال</th>
+                        <th>عملیات</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var plan in Model)
+                    {
+                        <tr>
+                            <td>@plan.DisplayOrder</td>
+                            <td><strong>@plan.Name</strong> <span class="text-muted">(@plan.SystemName)</span></td>
+                            <td>@plan.PriceMonthly.ToString("N0")</td>
+                            <td>@plan.PriceSixMonths.ToString("N0")</td>
+                            <td>@plan.PriceYearly.ToString("N0")</td>
+                            <td>@(plan.AllowDedicatedApp ? "✔️" : "—")</td>
+                            <td>@(plan.AllowInstagramAiAssistant ? "✔️" : "—")</td>
+                            <td>@(plan.AllowInstagramAiAssistantPro ? "⭐" : "—")</td>
+                            <td>@(plan.TrialDurationDays > 0 ? plan.TrialDurationDays.ToString() : "—")</td>
+                            <td>@(plan.IsActive ? "✔️" : "❌")</td>
+                            <td>
+                                <a class="btn btn-info btn-sm" asp-action="Edit" asp-route-id="@plan.Id">ویرایش</a>
+                                <form asp-action="Delete" asp-route-id="@plan.Id" method="post" style="display:inline"
+                                      onsubmit="return confirm('حذف این پلن قطعی است؟ اگر مشتری با این پلن اشتراک فعال دارد، مشکل ایجاد می‌شود.');">
+                                    <button type="submit" class="btn btn-danger btn-sm">حذف</button>
+                                </form>
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>

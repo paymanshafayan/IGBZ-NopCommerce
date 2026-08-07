@@ -1,0 +1,86 @@
+@model Nop.Plugin.Misc.MultiTenantStores.Domain.LandingContentBlock
+@{
+    Layout = "_AdminLayout";
+    ViewBag.PageTitle = Model.Id == 0 ? "افزودن بلوک محتوایی" : "ویرایش بلوک محتوایی";
+}
+
+<div class="content-header clearfix">
+    <h1 class="float-left">@ViewBag.PageTitle</h1>
+</div>
+
+@Html.AntiForgeryToken()
+
+<div class="content">
+    <form asp-action="@(Model.Id == 0 ? "Create" : "Edit")" method="post">
+        <input type="hidden" asp-for="Id" />
+
+        <div class="card card-default mb-3">
+            <div class="card-header">تنظیمات پایه</div>
+            <div class="card-body">
+                <div class="form-group row">
+                    <label class="col-3">کلید صفحه (یکتا، انگلیسی)</label>
+                    <div class="col-9">
+                        <input asp-for="PageKey" class="form-control" placeholder="store / app / instagram-assistant" required />
+                        <small class="text-muted">در آدرس صفحهٔ «ادامه مطلب» استفاده می‌شود: /features/{کلید}</small>
+                    </div>
+                </div>
+                <div class="form-group row">
+                    <label class="col-3">عنوان در منوی سایت</label>
+                    <div class="col-9"><input asp-for="MenuTitle" class="form-control" placeholder="فروشگاه / اپلیکیشن / دستیار اینستا" required /></div>
+                </div>
+                <div class="form-group row">
+                    <label class="col-3">ترتیب نمایش</label>
+                    <div class="col-9"><input asp-for="DisplayOrder" class="form-control" type="number" /></div>
+                </div>
+                <div class="form-group row">
+                    <div class="col-9 offset-3">
+                        <label><input asp-for="IsActive" type="checkbox" /> فعال (در سایت مادر نمایش داده شود)</label>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="card card-default mb-3">
+            <div class="card-header">کادر صفحهٔ اصلی (خلاصه)</div>
+            <div class="card-body">
+                <div class="form-group row">
+                    <label class="col-3">عنوان</label>
+                    <div class="col-9"><input asp-for="Title" class="form-control" required /></div>
+                </div>
+                <div class="form-group row">
+                    <label class="col-3">متن خلاصه</label>
+                    <div class="col-9"><textarea asp-for="SummaryText" class="form-control" rows="3"></textarea></div>
+                </div>
+                <div class="form-group row">
+                    <label class="col-3">ویژگی‌ها (هرخط یکی)</label>
+                    <div class="col-9"><textarea asp-for="FeatureBulletsText" class="form-control" rows="6" placeholder="هر خط یک ویژگی"></textarea></div>
+                </div>
+                <div class="form-group row">
+                    <label class="col-3">آدرس تصویر کادر</label>
+                    <div class="col-9"><input asp-for="ImageUrl" class="form-control" placeholder="/images/features/xxx.jpg" /></div>
+                </div>
+                <div class="form-group row">
+                    <label class="col-3">متن دکمه</label>
+                    <div class="col-9"><input asp-for="CtaText" class="form-control" value="ادامه مطلب" /></div>
+                </div>
+            </div>
+        </div>
+
+        <div class="card card-default mb-3">
+            <div class="card-header">صفحهٔ کامل «ادامه مطلب»</div>
+            <div class="card-body">
+                <div class="form-group row">
+                    <label class="col-3">محتوای کامل (HTML ساده مجاز است)</label>
+                    <div class="col-9"><textarea asp-for="DetailFullContent" class="form-control" rows="8"></textarea></div>
+                </div>
+                <div class="form-group row">
+                    <label class="col-3">آدرس تصاویر گالری (هرخط یکی)</label>
+                    <div class="col-9"><textarea asp-for="DetailImageUrlsText" class="form-control" rows="4" placeholder="هر خط یک URL"></textarea></div>
+                </div>
+            </div>
+        </div>
+
+        <button type="submit" class="btn btn-primary">ذخیره</button>
+        <a asp-action="Index" class="btn btn-secondary">انصراف</a>
+    </form>
+</div>

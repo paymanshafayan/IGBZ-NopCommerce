@@ -1,0 +1,102 @@
+@model Nop.Plugin.Misc.MultiTenantStores.Domain.TenantPlan
+@{
+    Layout = "_AdminLayout";
+    ViewBag.PageTitle = Model.Id == 0 ? "افزودن پلن جدید" : "ویرایش پلن";
+}
+
+<div class="content-header clearfix">
+    <h1 class="float-left">@ViewBag.PageTitle</h1>
+</div>
+
+@Html.AntiForgeryToken()
+
+<div class="content">
+    <form asp-action="@(Model.Id == 0 ? "Create" : "Edit")" method="post">
+        <input type="hidden" asp-for="Id" />
+
+        <div class="card card-default mb-3">
+            <div class="card-header">اطلاعات پایه</div>
+            <div class="card-body">
+                <div class="form-group row">
+                    <label class="col-3">نام پلن (فارسی)</label>
+                    <div class="col-9"><input asp-for="Name" class="form-control" required /></div>
+                </div>
+                <div class="form-group row">
+                    <label class="col-3">نام سیستمی (انگلیسی، یکتا)</label>
+                    <div class="col-9"><input asp-for="SystemName" class="form-control" placeholder="bronze / silver / gold / trial" required /></div>
+                </div>
+                <div class="form-group row">
+                    <label class="col-3">توضیحات</label>
+                    <div class="col-9"><textarea asp-for="Description" class="form-control" rows="2"></textarea></div>
+                </div>
+                <div class="form-group row">
+                    <label class="col-3">شناسه محصول متصل (پرداخت)</label>
+                    <div class="col-9">
+                        <input asp-for="LinkedProductId" class="form-control" type="number" />
+                        <small class="text-muted">باید به یک محصول واقعی nopCommerce برای دریافت وجه وصل شود.</small>
+                    </div>
+                </div>
+                <div class="form-group row">
+                    <label class="col-3">ترتیب نمایش</label>
+                    <div class="col-9"><input asp-for="DisplayOrder" class="form-control" type="number" /></div>
+                </div>
+                <div class="form-group row">
+                    <div class="col-9 offset-3">
+                        <label><input asp-for="IsActive" type="checkbox" /> فعال (در سایت مادر نمایش داده شود)</label>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="card card-default mb-3">
+            <div class="card-header">قیمت‌گذاری (تومان)</div>
+            <div class="card-body">
+                <div class="form-group row">
+                    <label class="col-3">ماهانه</label>
+                    <div class="col-9"><input asp-for="PriceMonthly" class="form-control" type="number" step="1000" /></div>
+                </div>
+                <div class="form-group row">
+                    <label class="col-3">۶ ماهه</label>
+                    <div class="col-9"><input asp-for="PriceSixMonths" class="form-control" type="number" step="1000" /></div>
+                </div>
+                <div class="form-group row">
+                    <label class="col-3">یک‌ساله</label>
+                    <div class="col-9"><input asp-for="PriceYearly" class="form-control" type="number" step="1000" /></div>
+                </div>
+                <div class="form-group row">
+                    <label class="col-3">مدت آزمایشی رایگان (روز)</label>
+                    <div class="col-9">
+                        <input asp-for="TrialDurationDays" class="form-control" type="number" />
+                        <small class="text-muted">اگر بزرگ‌تر از صفر باشد، این پلن رایگان و آزمایشی است (قیمت‌های بالا نادیده گرفته می‌شوند).</small>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="card card-default mb-3">
+            <div class="card-header">امکانات (طبق ساختار برنزی/نقره‌ای/طلایی)</div>
+            <div class="card-body">
+                <div class="form-group row">
+                    <div class="col-12"><label><input asp-for="AllowStore" type="checkbox" /> فروشگاه</label></div>
+                    <div class="col-12"><label><input asp-for="AllowDedicatedApp" type="checkbox" /> اپلیکیشن اختصاصی Android/iOS</label></div>
+                    <div class="col-12"><label><input asp-for="AllowCustomDomain" type="checkbox" /> دامنهٔ اختصاصی</label></div>
+                    <div class="col-12"><label><input asp-for="AllowInstagramAiAssistant" type="checkbox" /> دستیار اینستاگرام (نسخهٔ عادی)</label></div>
+                    <div class="col-12">
+                        <label><input asp-for="AllowInstagramAiAssistantPro" type="checkbox" /> دستیار اینستاگرام <strong>نسخهٔ Pro</strong> (مشتریان VIP + حمایت مالی از طریق کامنت)</label>
+                    </div>
+                </div>
+                <div class="form-group row">
+                    <label class="col-3">حداکثر تعداد محصول (۰=نامحدود)</label>
+                    <div class="col-9"><input asp-for="MaxProductsAllowed" class="form-control" type="number" /></div>
+                </div>
+                <div class="form-group row">
+                    <label class="col-3">حداکثر سفارش در ماه (۰=نامحدود)</label>
+                    <div class="col-9"><input asp-for="MaxOrdersPerMonth" class="form-control" type="number" /></div>
+                </div>
+            </div>
+        </div>
+
+        <button type="submit" class="btn btn-primary">ذخیره</button>
+        <a asp-action="Index" class="btn btn-secondary">انصراف</a>
+    </form>
+</div>

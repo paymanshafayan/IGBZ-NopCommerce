@@ -1,0 +1,103 @@
+@model Nop.Plugin.Misc.MultiTenantStores.Models.IntegrationCredentialModel
+@{
+    Layout = "_AdminLayout";
+    var isEdit = Model.Id > 0;
+    ViewBag.PageTitle = isEdit ? "ویرایش اعتبارنامه" : "افزودن اعتبارنامهٔ جدید";
+}
+
+<form asp-action="@(isEdit ? "Edit" : "Create")" method="post">
+    <div class="content-header clearfix">
+        <h1 class="float-left">@ViewBag.PageTitle</h1>
+        <div class="float-right">
+            <button type="submit" class="btn btn-primary">ذخیره</button>
+            <a asp-action="Index" class="btn btn-secondary">بازگشت به لیست</a>
+        </div>
+    </div>
+
+    <div class="content">
+        <div class="form-horizontal">
+            <div class="card card-default">
+                <div class="card-body">
+
+                    <input type="hidden" asp-for="Id" />
+                    <input type="hidden" asp-for="StoreId" />
+
+                    <div class="form-group row">
+                        <label class="col-sm-3 col-form-label">شناسهٔ Provider</label>
+                        <div class="col-sm-9">
+                            <select asp-for="ProviderKey" asp-items="Model.AvailableProviderKeys" class="form-control"></select>
+                            <small class="form-text text-muted">
+                                مثال: parbad.zarinpal، digikala، nowpayments، tapin، triboon
+                            </small>
+                            @if (!string.IsNullOrEmpty(Model.ProviderGuideUrl))
+                            {
+                                <div class="mt-1">
+                                    <a href="@Model.ProviderGuideUrl" target="_blank" rel="noopener">
+                                        📘 راهنمای دریافت API Key این سرویس
+                                    </a>
+                                </div>
+                            }
+                        </div>
+                    </div>
+
+                    <div class="form-group row">
+                        <label class="col-sm-3 col-form-label">کلید API (Api Key)</label>
+                        <div class="col-sm-9">
+                            <input asp-for="ApiKeyMaskedOrNew" class="form-control" autocomplete="off" placeholder="@(isEdit ? "برای تغییر، مقدار جدید را وارد کنید — خالی بگذارید تا مقدار فعلی حفظ شود" : "کلید API را وارد کنید")" />
+                            @if (isEdit)
+                            {
+                                <small class="form-text text-muted">مقدار فعلی (ماسک‌شده): @Model.ApiKeyMaskedOrNew</small>
+                            }
+                        </div>
+                    </div>
+
+                    <div class="form-group row">
+                        <label class="col-sm-3 col-form-label">راز API (Api Secret)</label>
+                        <div class="col-sm-9">
+                            <input asp-for="ApiSecretMaskedOrNew" class="form-control" autocomplete="off" placeholder="@(isEdit ? "برای تغییر، مقدار جدید را وارد کنید — خالی بگذارید تا مقدار فعلی حفظ شود" : "در صورت نیاز وارد کنید")" />
+                        </div>
+                    </div>
+
+                    <div class="form-group row">
+                        <label class="col-sm-3 col-form-label">آدرس Endpoint اختصاصی (اختیاری)</label>
+                        <div class="col-sm-9">
+                            <input asp-for="EndpointOverrideUrl" class="form-control" placeholder="https://..." />
+                            <small class="form-text text-muted">
+                                در صورت خالی‌بودن، آدرس پیش‌فرض هرکدام از سرویس‌ها در کد استفاده می‌شود.
+                            </small>
+                        </div>
+                    </div>
+
+                    <div class="form-group row">
+                        <label class="col-sm-3 col-form-label">فعال</label>
+                        <div class="col-sm-9">
+                            <input asp-for="IsActive" type="checkbox" />
+                        </div>
+                    </div>
+
+                    @if (isEdit)
+                    {
+                        <div class="form-group row">
+                            <label class="col-sm-3 col-form-label">وضعیت تست اتصال</label>
+                            <div class="col-sm-9">
+                                @if (Model.IsVerified)
+                                {
+                                    <span class="badge badge-info">آخرین تست: در دسترس بود</span>
+                                }
+                                else
+                                {
+                                    <span class="badge badge-secondary">هنوز تست موفق ثبت نشده</span>
+                                }
+                                <p class="text-muted mt-2">@Model.LastTestResultMessage</p>
+                                <p class="text-muted">
+                                    آخرین تست: @(Model.LastTestedOnUtc?.ToString("yyyy/MM/dd HH:mm") ?? "—")
+                                </p>
+                            </div>
+                        </div>
+                    }
+
+                </div>
+            </div>
+        </div>
+    </div>
+</form>

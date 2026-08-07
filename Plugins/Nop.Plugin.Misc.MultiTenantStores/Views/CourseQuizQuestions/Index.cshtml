@@ -1,0 +1,131 @@
+@model System.Collections.Generic.IList<Nop.Plugin.Misc.MultiTenantStores.Domain.CourseQuizQuestion>
+@using Nop.Plugin.Misc.MultiTenantStores.Domain
+@{
+    Layout = "_AdminLayout";
+    ViewBag.PageTitle = "سوالات آزمون دوره";
+    var productId = (int)ViewBag.ProductId;
+    var productName = (string)ViewBag.ProductName;
+    var optionsByQuestionId = (System.Collections.Generic.Dictionary<int, System.Collections.Generic.List<CourseQuizOption>>)ViewBag.OptionsByQuestionId;
+}
+
+<div class="content-header clearfix">
+    <h1 class="float-left">سوالات آزمون پایانی: @productName</h1>
+    <div class="float-right">
+        <a class="btn btn-secondary" asp-controller="CourseLessons" asp-action="Index" asp-route-productId="@productId">
+            <i class="fas fa-list"></i> مدیریت سرفصل‌های همین دوره
+        </a>
+    </div>
+</div>
+
+@Html.AntiForgeryToken()
+
+<div class="content">
+    <div class="card card-default mb-3">
+        <div class="card-body">
+            <h4>افزودن سوال جدید</h4>
+            <form asp-action="CreateQuestion" method="post">
+                <input type="hidden" name="productId" value="@productId" />
+                <div class="form-row">
+                    <div class="col-9">
+                        <input type="text" name="questionText" class="form-control" placeholder="متن سوال" required />
+                    </div>
+                    <div class="col-auto">
+                        <button type="submit" class="btn btn-primary">افزودن سوال</button>
+                    </div>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    @if (!Model.Any())
+    {
+        <div class="card card-default">
+            <div class="card-body text-center text-muted">
+                هنوز سوالی برای آزمون این دوره ثبت نشده. (توجه: تا وقتی حداقل یک سوال با یک گزینهٔ
+                صحیح ثبت نشود، GradeQuizAsync پیام «این دوره آزمونی ندارد» برمی‌گرداند.)
+            </div>
+        </div>
+    }
+
+    @foreach (var question in Model)
+    {
+        var options = optionsByQuestionId.TryGetValue(question.Id, out var opts) ? opts : new System.Collections.Generic.List<CourseQuizOption>();
+        var hasCorrectOption = options.Any(o => o.IsCorrect);
+
+        <div class="card card-default mb-3">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <span><strong>سوال @question.DisplayOrder:</strong> @question.QuestionText</span>
+                <div>
+                    @if (!hasCorrectOption && options.Any())
+                    {
+                        <span class="badge badge-warning mr-2">⚠ هیچ گزینهٔ صحیحی مشخص نشده</span>
+                    }
+                    <form asp-action="DeleteQuestion" method="post" style="display:inline"
+                          onsubmit="return confirm('حذف این سوال و همهٔ گزینه‌هایش قطعی است؟');">
+                        <input type="hidden" name="id" value="@question.Id" />
+                        <input type="hidden" name="productId" value="@productId" />
+                        <button type="submit" class="btn btn-danger btn-sm">حذف سوال</button>
+                    </form>
+                </div>
+            </div>
+            <div class="card-body">
+                <table class="table table-sm table-bordered mb-3">
+                    <thead>
+                        <tr><th style="width:80px">صحیح؟</th><th>متن گزینه</th><th style="width:100px">عملیات</th></tr>
+                    </thead>
+                    <tbody>
+                        @if (!options.Any())
+                        {
+                            <tr><td colspan="3" class="text-center text-muted">هنوز گزینه‌ای برای این سوال ثبت نشده.</td></tr>
+                        }
+                        @foreach (var option in options)
+                        {
+                            <tr class="@(option.IsCorrect ? "table-success" : "")">
+                                <td class="text-center">
+                                    @if (option.IsCorrect)
+                                    {
+                                        <span title="گزینهٔ صحیح">✔️</span>
+                                    }
+                                    else
+                                    {
+                                        <form asp-action="SetCorrectOption" method="post">
+                                            <input type="hidden" name="optionId" value="@option.Id" />
+                                            <input type="hidden" name="questionId" value="@question.Id" />
+                                            <input type="hidden" name="productId" value="@productId" />
+                                            <button type="submit" class="btn btn-outline-success btn-sm" title="این گزینه را صحیح علامت بزن">تعیین به‌عنوان صحیح</button>
+                                        </form>
+                                    }
+                                </td>
+                                <td>@option.OptionText</td>
+                                <td>
+                                    <form asp-action="DeleteOption" method="post" onsubmit="return confirm('حذف این گزینه قطعی است؟');">
+                                        <input type="hidden" name="id" value="@option.Id" />
+                                        <input type="hidden" name="questionId" value="@question.Id" />
+                                        <input type="hidden" name="productId" value="@productId" />
+                                        <button type="submit" class="btn btn-outline-danger btn-sm">حذف</button>
+                                    </form>
+                                </td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+
+                <form asp-action="AddOption" method="post">
+                    <input type="hidden" name="questionId" value="@question.Id" />
+                    <input type="hidden" name="productId" value="@productId" />
+                    <div class="form-row align-items-center">
+                        <div class="col-7">
+                            <input type="text" name="optionText" class="form-control" placeholder="متن گزینهٔ جدید" required />
+                        </div>
+                        <div class="col-auto">
+                            <label class="mb-0"><input type="checkbox" name="isCorrect" value="true" /> این گزینه صحیح است</label>
+                        </div>
+                        <div class="col-auto">
+                            <button type="submit" class="btn btn-secondary btn-sm">افزودن گزینه</button>
+                        </div>
+                    </div>
+                </form>
+            </div>
+        </div>
+    }
+</div>

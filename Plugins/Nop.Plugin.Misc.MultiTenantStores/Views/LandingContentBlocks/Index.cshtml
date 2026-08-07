@@ -1,0 +1,55 @@
+@model System.Collections.Generic.IList<Nop.Plugin.Misc.MultiTenantStores.Domain.LandingContentBlock>
+@{
+    Layout = "_AdminLayout";
+    ViewBag.PageTitle = "بلوک‌های محتوایی سایت مادر";
+}
+
+<div class="content-header clearfix">
+    <h1 class="float-left">بلوک‌های محتوایی سایت مادر (فروشگاه / اپلیکیشن / دستیار اینستاگرام)</h1>
+    <div class="float-right">
+        <a class="btn btn-secondary" asp-controller="TenantPlans" asp-action="Index">
+            <i class="fas fa-tags"></i> پلن‌های اشتراکی
+        </a>
+        <a class="btn btn-primary" asp-action="Create">
+            <i class="fas fa-plus"></i> افزودن بلوک جدید
+        </a>
+    </div>
+</div>
+
+<div class="content">
+    <div class="card card-default">
+        <div class="card-body">
+            <table class="table table-bordered">
+                <thead>
+                    <tr>
+                        <th>ترتیب</th>
+                        <th>کلید صفحه</th>
+                        <th>عنوان منو</th>
+                        <th>عنوان</th>
+                        <th>فعال</th>
+                        <th>عملیات</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var block in Model)
+                    {
+                        <tr>
+                            <td>@block.DisplayOrder</td>
+                            <td><code>@block.PageKey</code></td>
+                            <td>@block.MenuTitle</td>
+                            <td>@block.Title</td>
+                            <td>@(block.IsActive ? "✔️" : "❌")</td>
+                            <td>
+                                <a class="btn btn-info btn-sm" asp-action="Edit" asp-route-id="@block.Id">ویرایش</a>
+                                <form asp-action="Delete" asp-route-id="@block.Id" method="post" style="display:inline"
+                                      onsubmit="return confirm('حذف این بلوک قطعی است؟');">
+                                    <button type="submit" class="btn btn-danger btn-sm">حذف</button>
+                                </form>
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>

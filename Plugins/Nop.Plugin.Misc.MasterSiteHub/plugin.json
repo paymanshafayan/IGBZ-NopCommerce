@@ -1,0 +1,13 @@
+{
+  "Group": "Master Site",
+  "FriendlyName": "Master Site Central Hub & VIP Club",
+  "SystemName": "Misc.MasterSiteHub",
+  "Version": "1.00",
+  "SupportedVersions": [
+    "4.90"
+  ],
+  "Author": "AI Studio Engineering Team",
+  "DisplayOrder": 3,
+  "FileName": "Nop.Plugin.Misc.MasterSiteHub.dll",
+  "Description": "پلاگین هاب مرکزی سایت مادر، مدیریت کلاب مشتریان VIP اینستاگرام، سکه هدیه، تخفیف هوشمند و وب‌هوک سفارشات"
+}

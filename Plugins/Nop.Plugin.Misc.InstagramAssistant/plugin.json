@@ -1,0 +1,13 @@
+{
+  "Group": "Instagram & AI Studio",
+  "FriendlyName": "Instagram Automation & AI Photo Studio Assistant",
+  "SystemName": "Misc.InstagramAssistant",
+  "Version": "1.00",
+  "SupportedVersions": [
+    "4.90"
+  ],
+  "Author": "AI Studio Engineering Team",
+  "DisplayOrder": 4,
+  "FileName": "Nop.Plugin.Misc.InstagramAssistant.dll",
+  "Description": "پلاگین مجزا و پیشرفته دستیار اینستاگرام، ربات دایرکت خودکار، کلاب VIP، سکه هدیه، ویزارد عکاسی محصول و حک کد SKU بر روی nopCommerce 4.90"
+}

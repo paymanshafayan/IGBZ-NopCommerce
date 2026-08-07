@@ -1,0 +1,52 @@
+@model System.Collections.Generic.IList<Nop.Plugin.Misc.MultiTenantStores.Domain.AffiliateWithdrawalRequest>
+@{
+    Layout = "_AdminLayout";
+    ViewBag.PageTitle = "درخواست‌های تسویه‌حساب معرف‌ها";
+}
+
+<div class="content-header clearfix">
+    <h1 class="float-left">درخواست‌های تسویه‌حساب معرف‌ها (Affiliate)</h1>
+</div>
+
+@Html.AntiForgeryToken()
+
+<div class="content">
+    <div class="card card-default">
+        <div class="card-body">
+            <table class="table table-bordered">
+                <thead>
+                    <tr>
+                        <th>شناسه مشتری</th>
+                        <th>مبلغ درخواستی</th>
+                        <th>اطلاعات حساب بانکی</th>
+                        <th>تاریخ درخواست</th>
+                        <th>عملیات</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @if (!Model.Any())
+                    {
+                        <tr><td colspan="5" class="text-center text-muted">درخواست در انتظار بررسی وجود ندارد.</td></tr>
+                    }
+                    @foreach (var item in Model)
+                    {
+                        <tr>
+                            <td>@item.CustomerId</td>
+                            <td>@item.AmountToman.ToString("N0") تومان</td>
+                            <td>@item.BankAccountInfo</td>
+                            <td>@item.RequestedOnUtc.ToString("yyyy/MM/dd HH:mm")</td>
+                            <td>
+                                <form asp-action="Approve" asp-route-id="@item.Id" method="post" style="display:inline">
+                                    <button type="submit" class="btn btn-success btn-sm">تایید و پرداخت</button>
+                                </form>
+                                <form asp-action="Reject" asp-route-id="@item.Id" method="post" style="display:inline">
+                                    <button type="submit" class="btn btn-danger btn-sm">رد درخواست</button>
+                                </form>
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>

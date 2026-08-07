@@ -1,0 +1,145 @@
+@model Nop.Plugin.Misc.MasterSiteHub.Components.InstagramGridModel
+
+<div class="igbz-theme-wrapper" dir="rtl">
+
+    @* --- نوار استوری --- *@
+    @if (Model.Stories != null && Model.Stories.Any())
+    {
+        <div class="igbz-stories-bar">
+            @foreach (var story in Model.Stories)
+            {
+                <div class="igbz-story-item" onclick="igbzOpenModal(@story.ProductId)">
+                    <div class="igbz-story-avatar">
+                        <img src="@story.ImageUrl" alt="@story.Name" loading="lazy" />
+                    </div>
+                    <span class="igbz-story-label">@(story.Name.Length > 10 ? story.Name.Substring(0, 10) + "…" : story.Name)</span>
+                </div>
+            }
+        </div>
+    }
+
+    @* --- Grid محصولات --- *@
+    <div class="igbz-product-grid">
+        @foreach (var tile in Model.Tiles)
+        {
+            <div class="igbz-grid-tile" onclick="igbzOpenModal(@tile.ProductId)"
+                 data-product-id="@tile.ProductId"
+                 data-name="@tile.Name"
+                 data-image="@tile.ImageUrl"
+                 data-price="@tile.Price.ToString("N0")"
+                 data-sku="@tile.Sku"
+                 data-url="@tile.DetailUrl">
+                <img src="@tile.ImageUrl" alt="@tile.Name" loading="lazy" />
+                <div class="igbz-grid-tile-overlay">
+                    <span>@tile.Name</span>
+                </div>
+            </div>
+        }
+    </div>
+
+    @* --- Modal (سبک Reels/Feed) --- *@
+    <div id="igbz-reels-modal" class="igbz-modal-backdrop" onclick="igbzCloseModalOnBackdrop(event)">
+        <div class="igbz-modal-content">
+            <button type="button" class="igbz-modal-close" onclick="igbzCloseModal()">✕</button>
+            <img id="igbz-modal-image" src="" alt="" />
+            <div class="igbz-modal-info">
+                <h4 id="igbz-modal-name"></h4>
+                <div id="igbz-modal-price" class="igbz-modal-price"></div>
+                <a id="igbz-modal-buy-link" href="#" class="igbz-modal-buy-button">مشاهده و خرید</a>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+    .igbz-theme-wrapper { max-width: 1000px; margin: 0 auto; padding: 16px 8px; }
+
+    .igbz-stories-bar {
+        display: flex; gap: 14px; overflow-x: auto; padding: 8px 4px 16px;
+        scrollbar-width: none;
+    }
+    .igbz-stories-bar::-webkit-scrollbar { display: none; }
+
+    .igbz-story-item {
+        display: flex; flex-direction: column; align-items: center; gap: 6px;
+        cursor: pointer; flex-shrink: 0; width: 72px;
+    }
+    .igbz-story-avatar {
+        width: 64px; height: 64px; border-radius: 50%; padding: 3px;
+        background: linear-gradient(45deg, #f9ce34, #ee2a7b, #6228d7);
+    }
+    .igbz-story-avatar img {
+        width: 100%; height: 100%; border-radius: 50%; object-fit: cover;
+        border: 2px solid #fff; display: block;
+    }
+    .igbz-story-label {
+        font-size: 11px; color: #333; text-align: center; white-space: nowrap;
+        overflow: hidden; text-overflow: ellipsis; max-width: 72px;
+    }
+
+    .igbz-product-grid {
+        display: grid; grid-template-columns: repeat(3, 1fr); gap: 3px;
+    }
+    .igbz-grid-tile {
+        position: relative; aspect-ratio: 1 / 1; overflow: hidden; cursor: pointer; background: #eee;
+    }
+    .igbz-grid-tile img {
+        width: 100%; height: 100%; object-fit: cover; display: block; transition: transform .25s ease;
+    }
+    .igbz-grid-tile:hover img { transform: scale(1.05); }
+    .igbz-grid-tile-overlay {
+        position: absolute; inset: 0; background: linear-gradient(to top, rgba(0,0,0,.55), transparent 45%);
+        display: flex; align-items: flex-end; padding: 8px; opacity: 0; transition: opacity .2s ease;
+    }
+    .igbz-grid-tile:hover .igbz-grid-tile-overlay { opacity: 1; }
+    .igbz-grid-tile-overlay span { color: #fff; font-size: 12px; }
+
+    .igbz-modal-backdrop {
+        display: none; position: fixed; inset: 0; background: rgba(0,0,0,.85); z-index: 9999;
+        align-items: center; justify-content: center; padding: 20px;
+    }
+    .igbz-modal-backdrop.igbz-open { display: flex; }
+    .igbz-modal-content {
+        position: relative; background: #fff; border-radius: 12px; overflow: hidden;
+        max-width: 420px; width: 100%; max-height: 90vh; display: flex; flex-direction: column;
+    }
+    .igbz-modal-content img#igbz-modal-image {
+        width: 100%; max-height: 60vh; object-fit: cover; background: #f2f2f2;
+    }
+    .igbz-modal-info { padding: 16px; }
+    .igbz-modal-price { font-size: 18px; font-weight: bold; margin: 8px 0 16px; color: #222; }
+    .igbz-modal-buy-button {
+        display: block; text-align: center; padding: 12px; border-radius: 8px;
+        background: linear-gradient(45deg, #f9ce34, #ee2a7b, #6228d7);
+        color: #fff; font-weight: bold; text-decoration: none;
+    }
+    .igbz-modal-close {
+        position: absolute; top: 10px; left: 10px; z-index: 2;
+        background: rgba(0,0,0,.5); color: #fff; border: none; border-radius: 50%;
+        width: 32px; height: 32px; font-size: 16px; cursor: pointer;
+    }
+</style>
+
+<script>
+    // نمایش سریع محصول (سبک Reels/Feed) — داده‌ها مستقیماً از data-attribute های همان Tile خوانده
+    // می‌شود (بدون فراخوانی AJAX اضافه، چون داده از قبل در همان صفحه رندر شده).
+    function igbzOpenModal(productId) {
+        var tile = document.querySelector('.igbz-grid-tile[data-product-id="' + productId + '"]');
+        if (!tile) return;
+
+        document.getElementById('igbz-modal-image').src = tile.getAttribute('data-image');
+        document.getElementById('igbz-modal-name').textContent = tile.getAttribute('data-name');
+        document.getElementById('igbz-modal-price').textContent = tile.getAttribute('data-price') + ' تومان';
+        document.getElementById('igbz-modal-buy-link').href = tile.getAttribute('data-url');
+
+        document.getElementById('igbz-reels-modal').classList.add('igbz-open');
+    }
+
+    function igbzCloseModal() {
+        document.getElementById('igbz-reels-modal').classList.remove('igbz-open');
+    }
+
+    function igbzCloseModalOnBackdrop(event) {
+        if (event.target.id === 'igbz-reels-modal') igbzCloseModal();
+    }
+</script>
