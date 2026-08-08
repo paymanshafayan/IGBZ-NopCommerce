@@ -155,13 +155,12 @@ namespace Nop.Plugin.Misc.MultiTenantStores.Services
                     });
                 }
 
-                // ⚠️ امضای دقیق CustomerRegistrationRequest باید بعد از build واقعی nopCommerce
-                // 4.90.6 تایید شود (این بخش هیچ نمونهٔ قبلی در کدبیس نداشت).
+                // ثبت‌نام واقعی با متد موجود در nopCommerce 4.90.6: RegisterCustomerAsync
                 var registrationRequest = new Nop.Services.Customers.CustomerRegistrationRequest(
                     customer, request.AdminEmail, request.AdminEmail, request.Password,
                     Nop.Core.Domain.Customers.PasswordFormat.Hashed, store.Id, true);
 
-                var registrationResult = await _customerRegistrationService.RegisterAsync(registrationRequest);
+                var registrationResult = await _customerRegistrationService.RegisterCustomerAsync(registrationRequest);
                 if (!registrationResult.Success)
                 {
                     return new ProvisioningResult
@@ -173,10 +172,11 @@ namespace Nop.Plugin.Misc.MultiTenantStores.Services
             }
 
             customer.RegisteredInStoreId = store.Id;
-            await _customerService.UpdateCustomerAsync(customer);
-
+            // در 4.90.6 شمارهٔ موبایل فیلد مستقیم Customer.Phone است
             if (!string.IsNullOrWhiteSpace(request.AdminPhoneNumber))
-                await _genericAttributeService.SaveAttributeAsync(customer, NopCustomerDefaults.PhoneAttribute, request.AdminPhoneNumber);
+                customer.Phone = request.AdminPhoneNumber;
+
+            await _customerService.UpdateCustomerAsync(customer);
 
             // ثبت HomeStoreId به عنوان Generic Attribute جهت قفل مشتری به فروشگاه
             await _genericAttributeService.SaveAttributeAsync(customer, "HomeStoreId", store.Id);

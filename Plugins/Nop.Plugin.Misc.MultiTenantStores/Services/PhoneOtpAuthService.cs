@@ -168,14 +168,19 @@ namespace Nop.Plugin.Misc.MultiTenantStores.Services
                     CreatedOnUtc = DateTime.UtcNow,
                     LastActivityDateUtc = DateTime.UtcNow
                 };
+                // در nopCommerce 4.90.6 شمارهٔ موبایل فیلد مستقیم Customer.Phone است (نه GenericAttribute)
+                // و متد GetAllCustomersAsync(phone: ...) روی همین فیلد جست‌وجو می‌کند.
+                customer.Phone = normalizedPhone;
                 await _customerService.InsertCustomerAsync(customer);
 
-                // ⚠️ عمداً روی customer.Phone مستقیم Set نمی‌شود: GetAllCustomersAsync(phone: ...)
-                // در nopCommerce برای جست‌وجو از GenericAttribute استاندارد (NopCustomerDefaults.
-                // PhoneAttribute) استفاده می‌کند، نه یک ستون مستقیم روی Customer. اگر این‌جا فقط
-                // خاصیت مستقیم Set می‌شد، دفعهٔ بعد که همین کاربر با همان شماره وارد می‌شد، جست‌وجو
-                // او را پیدا نمی‌کرد و یک مشتری تکراری دوباره ساخته می‌شد.
-                await _genericAttributeService.SaveAttributeAsync(customer, NopCustomerDefaults.PhoneAttribute, normalizedPhone);
+                // بعد از درج اولیه، اگر شماره تلفن جدا ذخیره شد، آپدیت می‌کنیم (بعضی نسخه‌ها Phone را در Insert نادیده می‌گیرند)
+                var insertedCustomer = (await _customerService.GetAllCustomersAsync(phone: normalizedPhone, pageSize: 1)).FirstOrDefault();
+                if (insertedCustomer != null && string.IsNullOrWhiteSpace(insertedCustomer.Phone))
+                {
+                    insertedCustomer.Phone = normalizedPhone;
+                    await _customerService.UpdateCustomerAsync(insertedCustomer);
+                    customer = insertedCustomer;
+                }
 
                 var registeredRole = await _customerService.GetCustomerRoleBySystemNameAsync(NopCustomerDefaults.RegisteredRoleName);
                 if (registeredRole != null)

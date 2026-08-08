@@ -22,15 +22,18 @@ namespace Nop.Plugin.Misc.MultiTenantStores.Controllers.Admin
         private readonly IStoreContext _storeContext;
         private readonly IPermissionService _permissionService;
         private readonly IAffiliateMarketingService _affiliateService;
+        private readonly Nop.Services.Messages.INotificationService _notificationService;
 
         public AffiliateWithdrawalRequestsController(
             IStoreContext storeContext,
             IPermissionService permissionService,
-            IAffiliateMarketingService affiliateService)
+            IAffiliateMarketingService affiliateService,
+            Nop.Services.Messages.INotificationService notificationService)
         {
             _storeContext = storeContext;
             _permissionService = permissionService;
             _affiliateService = affiliateService;
+            _notificationService = notificationService;
         }
 
         public async Task<IActionResult> Index()
@@ -52,7 +55,7 @@ namespace Nop.Plugin.Misc.MultiTenantStores.Controllers.Admin
 
             var approved = await _affiliateService.ApproveWithdrawalAsync(id, note);
             if (!approved)
-                ErrorNotification("موجودی کیف‌پول کاربر از زمان درخواست کاهش یافته و دیگر برای این برداشت کافی نیست.");
+                _notificationService.ErrorNotification("موجودی کیف‌پول کاربر از زمان درخواست کاهش یافته و دیگر برای این برداشت کافی نیست.");
 
             return RedirectToAction("Index");
         }

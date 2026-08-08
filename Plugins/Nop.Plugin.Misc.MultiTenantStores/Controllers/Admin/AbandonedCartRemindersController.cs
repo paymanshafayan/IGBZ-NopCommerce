@@ -67,10 +67,8 @@ namespace Nop.Plugin.Misc.MultiTenantStores.Controllers.Admin
 
         private async Task<bool> SendReminderSmsAsync(HttpClient httpClient, string apiKey, Customer customer)
         {
-            // طبق همان قرارداد NormalizePhone در PhoneOtpAuthService، شمارهٔ موبایل مشتری از
-            // GenericAttribute استاندارد nopCommerce خوانده می‌شود (نه یک فیلد مستقیم روی Customer
-            // که در این نسخهٔ nopCommerce ممکن است اصلاً وجود نداشته باشد).
-            var phone = await _genericAttributeService.GetAttributeAsync<string>(customer, NopCustomerDefaults.PhoneAttribute);
+            // در nopCommerce 4.90.6 شمارهٔ موبایل فیلد مستقیم Customer.Phone است، نه GenericAttribute
+            var phone = customer.Phone;
             if (string.IsNullOrWhiteSpace(phone))
                 return false;
 

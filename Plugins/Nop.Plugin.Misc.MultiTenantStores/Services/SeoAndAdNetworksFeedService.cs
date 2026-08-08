@@ -84,9 +84,12 @@ namespace Nop.Plugin.Misc.MultiTenantStores.Services
                 var seName = await _urlRecordService.GetSeNameAsync(product);
                 var pictures = await _pictureService.GetPicturesByProductIdAsync(product.Id, 1);
                 var picture = pictures.FirstOrDefault();
-                var (imageUrl, _) = picture != null
-                    ? await _pictureService.GetPictureUrlAsync(picture)
-                    : (string.Empty, string.Empty);
+                string imageUrl = string.Empty;
+                if (picture != null)
+                {
+                    var result = await _pictureService.GetPictureUrlAsync(picture);
+                    imageUrl = result.Url;
+                }
 
                 channel.Add(new XElement("item",
                     new XElement("id", product.Id),
