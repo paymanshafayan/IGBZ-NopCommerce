@@ -7,6 +7,7 @@ namespace Nop.Plugin.Misc.InstagramAssistant.Consumers
     using System.Threading.Tasks;
     using Nop.Core;
     using Nop.Core.Domain.Catalog;
+    using Nop.Core.Events;
     using Nop.Services.Catalog;
     using Nop.Services.Events;
     using Nop.Services.Media;
