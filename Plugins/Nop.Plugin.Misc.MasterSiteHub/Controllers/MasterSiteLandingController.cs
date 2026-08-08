@@ -6,6 +6,7 @@ namespace Nop.Plugin.Misc.MasterSiteHub.Controllers
     using System.Threading.Tasks;
     using Microsoft.AspNetCore.Mvc;
     using Nop.Core;
+    using Nop.Core.Domain.Orders;
     using Nop.Services.Catalog;
     using Nop.Services.Media;
     using Nop.Services.Orders;
@@ -26,6 +27,7 @@ namespace Nop.Plugin.Misc.MasterSiteHub.Controllers
         private readonly ICategoryService _categoryService;
         private readonly IPictureService _pictureService;
         private readonly IOrderService _orderService;
+        private readonly IOrderProcessingService _orderProcessingService;
         private readonly IParbadPaymentService _paymentService;
         private readonly IJwtTokenService _jwtTokenService;
         private readonly ILandingContentBlockService _contentBlockService;
@@ -39,6 +41,7 @@ namespace Nop.Plugin.Misc.MasterSiteHub.Controllers
             ICategoryService categoryService,
             IPictureService pictureService,
             IOrderService orderService,
+            IOrderProcessingService orderProcessingService,
             IParbadPaymentService paymentService,
             IJwtTokenService jwtTokenService,
             ILandingContentBlockService contentBlockService)
@@ -51,6 +54,7 @@ namespace Nop.Plugin.Misc.MasterSiteHub.Controllers
             _categoryService = categoryService;
             _pictureService = pictureService;
             _orderService = orderService;
+            _orderProcessingService = orderProcessingService;
             _paymentService = paymentService;
             _jwtTokenService = jwtTokenService;
             _contentBlockService = contentBlockService;
@@ -224,6 +228,49 @@ namespace Nop.Plugin.Misc.MasterSiteHub.Controllers
         }
 
         /// <summary>
+        /// تایید واقعی پرداخت اشتراک ثبت‌نام — حلقهٔ ناقص قبلی: Signup لینک درگاه برمی‌گرداند ولی
+        /// هیچ Endpointی برای Verify بازگشت از درگاه وجود نداشت (فقط به کد Next.js بیرون ریپو
+        /// موکول شده بود که چیزی برای صدا زدن نداشت). حالا: تایید واقعی از Parbad → علامت‌گذاری
+        /// سفارش به‌عنوان پرداخت‌شده (که OrderPaidEvent را هم فعال می‌کند) → فعال‌سازی اشتراک و
+        /// دسترسی فروشگاه. سایت Next.js باید بعد از بازگشت کاربر از درگاه، همین Endpoint را با
+        /// (orderId, storeId, trackingNumber, amountToman) صدا بزند.
+        /// </summary>
+        [HttpPost("payment/verify")]
+        public async Task<IActionResult> VerifySignupPayment([FromBody] TenantSignupPaymentVerifyDto dto)
+        {
+            if (dto == null || dto.OrderId <= 0 || string.IsNullOrWhiteSpace(dto.TrackingNumber) || dto.AmountToman <= 0)
+                return BadRequest(new { success = false, message = "اطلاعات تایید پرداخت ناقص است." });
+
+            var order = await _orderService.GetOrderByIdAsync(dto.OrderId);
+            if (order == null)
+                return NotFound(new { success = false, message = "سفارش اشتراک یافت نشد." });
+
+            var verifyResult = await _paymentService.VerifyPaymentAsync(
+                TenantPlanService.MasterPlatformStoreId, dto.TrackingNumber, dto.AmountToman);
+
+            if (!verifyResult.IsSuccess)
+                return BadRequest(new { success = false, message = verifyResult.Message });
+
+            // فقط در صورتی سفارش پرداخت‌شده علامت می‌خورد که قبلاً پرداخت نشده باشد
+            // (MarkOrderAsPaidAsync رویداد OrderPaidEvent را فعال می‌کند و Consumer آن، مسیر
+            // فعال‌سازی را هم انجام می‌دهد — اینجا Idempotent است).
+            if (order.PaymentStatusId != (int)PaymentStatus.Paid)
+                await _orderProcessingService.MarkOrderAsPaidAsync(order);
+
+            var subscriptionActivated = false;
+            if (dto.StoreId > 0)
+                subscriptionActivated = await _tenantPlanService.ActivateSubscriptionAsync(dto.StoreId);
+
+            return Ok(new
+            {
+                success = true,
+                alreadyProcessed = verifyResult.AlreadyVerifiedBefore,
+                subscriptionActivated,
+                message = "پرداخت با موفقیت تایید شد و اشتراک فروشگاه فعال گردید."
+            });
+        }
+
+        /// <summary>
         /// استعلام فوری آنلاین بودن و امکان رزرو زیردامنه قبل از ثبت‌نام
         /// </summary>
         [HttpGet("check-subdomain")]
@@ -313,5 +360,16 @@ namespace Nop.Plugin.Misc.MasterSiteHub.Controllers
         public string BillingCycle { get; set; }
         public string GatewayName { get; set; }
         public string PaymentCallbackUrl { get; set; }
+    }
+
+    public class TenantSignupPaymentVerifyDto
+    {
+        public int OrderId { get; set; }
+
+        /// <summary>شناسهٔ فروشگاه ساخته‌شده در Signup — برای فعال‌سازی اشتراک آن.</summary>
+        public int StoreId { get; set; }
+
+        public string TrackingNumber { get; set; }
+        public decimal AmountToman { get; set; }
     }
 }

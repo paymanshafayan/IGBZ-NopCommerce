@@ -63,9 +63,9 @@ namespace Nop.Plugin.Api.Controllers.Admin
             );
 
             var resultItems = pagedCustomers
-                .Where(c => string.IsNullOrEmpty(query) || 
+                .Where(c => string.IsNullOrEmpty(query) ||
                             (c.Email != null && c.Email.Contains(query, StringComparison.OrdinalIgnoreCase)) ||
-                            (c.PhoneNumber != null && c.PhoneNumber.Contains(query)))
+                            (c.Phone != null && c.Phone.Contains(query)))
                 .Select(c =>
                 {
                     var hasStats = customerStats.TryGetValue(c.Id, out var stats);
@@ -73,7 +73,9 @@ namespace Nop.Plugin.Api.Controllers.Admin
                     {
                         Id = c.Id,
                         Email = c.Email,
-                        PhoneNumber = c.PhoneNumber,
+                        // فیلد واقعی Customer در nopCommerce 4.90 «Phone» است (نه PhoneNumber — طبق
+                        // ممیزی مقابل سورس واقعی؛ PhoneNumber در این نسخه وجود ندارد و خطای Build می‌داد).
+                        PhoneNumber = c.Phone,
                         RegisteredInStoreId = c.RegisteredInStoreId,
                         CreatedOnUtc = c.CreatedOnUtc,
                         OrdersCount = hasStats ? stats.OrdersCount : 0,

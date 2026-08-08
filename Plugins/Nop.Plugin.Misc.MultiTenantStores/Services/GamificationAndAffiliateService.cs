@@ -75,7 +75,9 @@ namespace Nop.Plugin.Misc.MultiTenantStores.Services
                 (Title: "تخفیف ۲۰٪", Percent: 20m),
                 (Title: "تخفیف ۵٪", Percent: 5m)
             };
-            var selected = rewardOptions[RandomNumberGenerator() % rewardOptions.Length];
+            // GetInt32(0, max) در دات‌نت با حذف بایاس ماژولار (rejection sampling) یکنواخت است —
+            // الگوی قبلی GetInt32(0, int.MaxValue) % Length بایاس جزئی داشت.
+            var selected = rewardOptions[System.Security.Cryptography.RandomNumberGenerator.GetInt32(0, rewardOptions.Length)];
             var couponCode = $"SPIN-{customerId}-{DateTime.UtcNow:yyyyMMddHHmmss}";
 
             await _discountService.InsertDiscountAsync(new Discount
@@ -137,9 +139,6 @@ namespace Nop.Plugin.Misc.MultiTenantStores.Services
 
             return sentCount;
         }
-
-        private static int RandomNumberGenerator() =>
-            System.Security.Cryptography.RandomNumberGenerator.GetInt32(0, int.MaxValue);
     }
 
     public class SpinWheelRewardResult

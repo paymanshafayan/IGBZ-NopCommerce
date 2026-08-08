@@ -47,26 +47,42 @@ namespace Nop.Plugin.Misc.MultiTenantStores.Consumers
             {
                 // بررسی اینکه آیا این محصول متناظر با یک پلن چندفروشگاهی است
                 var tenantPlan = await _tenantPlanService.GetPlanByProductIdAsync(item.ProductId);
-                if (tenantPlan != null)
+                if (tenantPlan == null)
+                    continue;
+
+                // مسیر «ثبت‌نام از سایت مادر»: فروشگاه و اشتراکِ PendingPayment از قبل ساخته شده‌اند —
+                // فقط باید فعال شوند. Provision مجدد باعث ساخت فروشگاه تکراری/خطا می‌شد.
+                var existingSubscription = await _tenantPlanService.GetSubscriptionByOwnerAndPlanAsync(order.CustomerId, tenantPlan.Id);
+                if (existingSubscription != null)
                 {
-                    // استخراج زیردامنه و نام فروشگاه درخواستی از خصوصیات سفارشی خرید (Checkout Attributes)
-                    var requestedSubdomain = await _genericAttributeService.GetAttributeAsync<string>(customer, "PendingSubdomain") ?? $"store{order.Id}";
-                    var requestedStoreName = await _genericAttributeService.GetAttributeAsync<string>(customer, "PendingStoreName") ?? $"فروشگاه {customer.Email}";
+                    await _tenantPlanService.ActivateSubscriptionAsync(existingSubscription.StoreId);
+                    continue;
+                }
 
-                    var provisionResult = await _tenantProvisioningService.ProvisionNewTenantStoreAsync(new ProvisionTenantRequest
-                    {
-                        StoreName = requestedStoreName,
-                        Subdomain = requestedSubdomain,
-                        AdminEmail = customer.Email,
-                        AdminPhoneNumber = customer.Phone,
-                        PlanId = tenantPlan.Id
-                    });
+                // مسیر «خرید مستقیم پلن از سایت مادر» (بدون ثبت‌نام قبلی): فروشگاه از صفر ساخته می‌شود.
+                var requestedSubdomain = await _genericAttributeService.GetAttributeAsync<string>(customer, "PendingSubdomain") ?? $"store{order.Id}";
+                var requestedStoreName = await _genericAttributeService.GetAttributeAsync<string>(customer, "PendingStoreName") ?? $"فروشگاه {customer.Email}";
 
-                    if (provisionResult.Success)
-                    {
-                        // فعال‌سازی آنی فروشگاه
-                        await _tenantProvisioningService.ActivateTenantStoreAsync(provisionResult.StoreId);
-                    }
+                var provisionResult = await _tenantProvisioningService.ProvisionNewTenantStoreAsync(new ProvisionTenantRequest
+                {
+                    StoreName = requestedStoreName,
+                    Subdomain = requestedSubdomain,
+                    AdminEmail = customer.Email,
+                    AdminPhoneNumber = customer.Phone,
+                    PlanId = tenantPlan.Id
+                });
+
+                if (provisionResult.Success)
+                {
+                    // مدت اشتراک را از مبلغ واقعی پرداخت‌شده نسبت به قیمت‌های پلن استخراج کن
+                    // (چرخهٔ صورتحساب در سفارش ذخیره نشده، ولی مبلغ آن را مشخص می‌کند)
+                    var durationDays = order.OrderTotal >= tenantPlan.PriceYearly ? 365
+                        : order.OrderTotal >= tenantPlan.PriceSixMonths ? 183
+                        : 30;
+
+                    // ساخت اشتراک Active + فعال‌سازی آنی دسترسی فروشگاه (پرداخت انجام شده)
+                    await _tenantPlanService.EnsureSubscriptionActiveAsync(
+                        provisionResult.StoreId, order.CustomerId, tenantPlan.Id, durationDays);
                 }
             }
         }

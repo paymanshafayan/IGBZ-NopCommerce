@@ -4,9 +4,12 @@ namespace Nop.Plugin.Misc.MultiTenantStores.Services
     using System.Linq;
     using System.Net.Http;
     using System.Security.Cryptography;
+    using System.Text;
     using System.Threading.Tasks;
     using Microsoft.Extensions.Caching.Memory;
     using Nop.Core.Domain.Customers;
+    using Nop.Data;
+    using Nop.Plugin.Misc.MultiTenantStores.Domain;
     using Nop.Services.Common;
     using Nop.Services.Customers;
 
@@ -45,6 +48,7 @@ namespace Nop.Plugin.Misc.MultiTenantStores.Services
         private readonly IJwtTokenService _jwtTokenService;
         private readonly IHttpClientFactory _httpClientFactory;
         private readonly IMemoryCache _memoryCache;
+        private readonly IRepository<PhoneOtpCode> _otpRepository;
 
         public PhoneOtpAuthService(
             ITenantIntegrationCredentialService credentialService,
@@ -52,7 +56,8 @@ namespace Nop.Plugin.Misc.MultiTenantStores.Services
             IGenericAttributeService genericAttributeService,
             IJwtTokenService jwtTokenService,
             IHttpClientFactory httpClientFactory,
-            IMemoryCache memoryCache)
+            IMemoryCache memoryCache,
+            IRepository<PhoneOtpCode> otpRepository)
         {
             _credentialService = credentialService;
             _customerService = customerService;
@@ -60,6 +65,7 @@ namespace Nop.Plugin.Misc.MultiTenantStores.Services
             _jwtTokenService = jwtTokenService;
             _httpClientFactory = httpClientFactory;
             _memoryCache = memoryCache;
+            _otpRepository = otpRepository;
         }
 
         public async Task<(bool success, string errorMessage)> RequestOtpAsync(int storeId, string phoneNumber)
@@ -100,7 +106,26 @@ namespace Nop.Plugin.Misc.MultiTenantStores.Services
                 return (false, $"اتصال به سرویس پیامک برقرار نشد: {ex.Message}");
             }
 
-            _memoryCache.Set(BuildOtpCacheKey(storeId, normalizedPhone), code, OtpTtl);
+            // ذخیرهٔ پایدار کد در دیتابیس (نه فقط حافظه): با ری‌استارت اپ یا در حالت چند نمونه،
+            // کد در انتظار تایید از بین نمی‌رود. قبل از درج، همهٔ کدهای استفاده‌نشدهٔ قبلی همین
+            // شماره (منقضی یا نه) پاک می‌شوند تا در هر لحظه فقط آخرین کد معتبر باشد.
+            var staleCodes = await _otpRepository.GetAllAsync(q =>
+                q.Where(x => x.StoreId == storeId && x.PhoneNumber == normalizedPhone && !x.Used));
+            foreach (var stale in staleCodes)
+                await _otpRepository.DeleteAsync(stale);
+
+            await _otpRepository.InsertAsync(new PhoneOtpCode
+            {
+                StoreId = storeId,
+                PhoneNumber = normalizedPhone,
+                CodeHash = HashOtp(storeId, normalizedPhone, code),
+                CreatedOnUtc = DateTime.UtcNow,
+                ExpiresOnUtc = DateTime.UtcNow.Add(OtpTtl),
+                Used = false
+            });
+
+            // حافظه فقط برای «محدودیت ۶۰ ثانیه بین دو درخواست» استفاده می‌شود (بدون ری‌استارت، بدترین
+            // حالتِ ممکن این است که کاربر بتواند کمی زودتر دوباره درخواست دهد — نه نشت امنیتی)
             _memoryCache.Set(throttleKey, true, ResendThrottle);
 
             return (true, null);
@@ -112,11 +137,19 @@ namespace Nop.Plugin.Misc.MultiTenantStores.Services
             if (normalizedPhone == null)
                 return new PhoneOtpVerifyResult { Success = false, ErrorMessage = "شمارهٔ موبایل نامعتبر است." };
 
-            var otpKey = BuildOtpCacheKey(storeId, normalizedPhone);
-            if (!_memoryCache.TryGetValue(otpKey, out string cachedCode) || cachedCode != code?.Trim())
+            // خواندن کد از دیتابیس (مقاوم به ری‌استارت/چند نمونه) — فقط آخرین کد استفاده‌نشده و
+            // غیرمنقضی برای این شماره معتبر است؛ کدها به‌صورت Hash ذخیره می‌شوند.
+            var pendingCodes = await _otpRepository.GetAllAsync(q =>
+                q.Where(x => x.StoreId == storeId && x.PhoneNumber == normalizedPhone && !x.Used && x.ExpiresOnUtc >= DateTime.UtcNow)
+                 .OrderByDescending(x => x.CreatedOnUtc));
+
+            var otpRecord = pendingCodes.FirstOrDefault();
+            if (otpRecord == null || otpRecord.CodeHash != HashOtp(storeId, normalizedPhone, code?.Trim()))
                 return new PhoneOtpVerifyResult { Success = false, ErrorMessage = "کد وارد شده نامعتبر یا منقضی‌شده است." };
 
-            _memoryCache.Remove(otpKey);
+            // باطل‌سازی یک‌بارمصرف: رکورد تاییدشده هرگز دوباره قابل استفاده نیست
+            otpRecord.Used = true;
+            await _otpRepository.UpdateAsync(otpRecord);
 
             // ICustomerService متد تک‌نتیجه‌ای GetCustomerByPhone ندارد؛ همان الگوی تاییدشدهٔ
             // DeepLinkRoutingController.ResolveStoreByPhone استفاده می‌شود.
@@ -166,7 +199,17 @@ namespace Nop.Plugin.Misc.MultiTenantStores.Services
             };
         }
 
-        private static string BuildOtpCacheKey(int storeId, string normalizedPhone) => $"otp-code:{storeId}:{normalizedPhone}";
+        /// <summary>
+        /// Hash کد OTP برای ذخیره‌سازی — کد خام هیچ‌جا (دیتابیس/لاگ) نگهداری نمی‌شود؛ حتی با نشت
+        /// دیتابیس، کد قابل استفاده‌ی مستقیم نیست.
+        /// </summary>
+        private static string HashOtp(int storeId, string phoneNumber, string code)
+        {
+            var raw = $"{storeId}:{phoneNumber}:{code}";
+            using var sha = SHA256.Create();
+            var hashBytes = sha.ComputeHash(Encoding.UTF8.GetBytes(raw));
+            return Convert.ToHexString(hashBytes).ToLowerInvariant();
+        }
 
         private static string GenerateNumericCode(int length)
         {

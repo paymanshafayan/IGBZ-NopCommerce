@@ -30,6 +30,24 @@ namespace Nop.Plugin.Misc.MultiTenantStores.Services
         /// </summary>
         Task<TenantPlan> GetActivePlanForStoreAsync(int storeId);
         Task<int> CreateSubscriptionOrderAsync(int storeId, int customerId, int planId, BillingCycle billingCycle);
+
+        /// <summary>آخرین اشتراک یک مشتری برای یک پلن مشخص — برای جلوگیری از Provision مجدد در هنگام تایید پرداخت.</summary>
+        Task<TenantStoreSubscription> GetSubscriptionByOwnerAndPlanAsync(int customerId, int planId);
+
+        /// <summary>
+        /// فعال‌سازی اشتراک موجود یک فروشگاه (PendingPayment/Trial → Active) + فعال‌سازی دسترسی
+        /// فروشگاه (نگاشت دامنه). در صورت نبود اشتراک، false برمی‌گرداند.
+        /// </summary>
+        Task<bool> ActivateSubscriptionAsync(int storeId);
+
+        /// <summary>
+        /// تضمین وجود اشتراک Active برای فروشگاه: اگر اشتراکی نباشد می‌سازد، اگر باشد (غیرفعال)
+        /// فعالش می‌کند — برای مسیر «خرید پلن مستقیم از سایت مادر» که فروشگاه و اشتراک باید پس از
+        /// پرداخت ساخته شوند. <paramref name="durationDays"/> فقط هنگام ساخت اشتراکِ جدید استفاده
+        /// می‌شود (چرخهٔ صورتحساب؛ پیش‌فرض ۳۰ روز).
+        /// </summary>
+        Task<bool> EnsureSubscriptionActiveAsync(int storeId, int customerId, int planId, int? durationDays = null);
+
         Task<IList<TenantStoreSubscription>> GetSubscriptionsExpiringInDaysAsync(int days);
         Task<IList<TenantStoreSubscription>> GetExpiredSubscriptionsAsync();
         Task SendExpiryWarningNotificationAsync(int storeId, int daysRemaining);
@@ -47,6 +65,7 @@ namespace Nop.Plugin.Misc.MultiTenantStores.Services
         private readonly IQueuedEmailService _queuedEmailService;
         private readonly IEmailAccountService _emailAccountService;
         private readonly EmailAccountSettings _emailAccountSettings;
+        private readonly ITenantProvisioningService _tenantProvisioningService;
 
         public TenantPlanService(
             IRepository<TenantPlan> planRepository,
@@ -56,7 +75,8 @@ namespace Nop.Plugin.Misc.MultiTenantStores.Services
             ICustomerService customerService,
             IQueuedEmailService queuedEmailService,
             IEmailAccountService emailAccountService,
-            EmailAccountSettings emailAccountSettings)
+            EmailAccountSettings emailAccountSettings,
+            ITenantProvisioningService tenantProvisioningService)
         {
             _planRepository = planRepository;
             _subscriptionRepository = subscriptionRepository;
@@ -66,6 +86,7 @@ namespace Nop.Plugin.Misc.MultiTenantStores.Services
             _queuedEmailService = queuedEmailService;
             _emailAccountService = emailAccountService;
             _emailAccountSettings = emailAccountSettings;
+            _tenantProvisioningService = tenantProvisioningService;
         }
 
         public async Task<IList<TenantPlan>> GetAllActivePlansAsync()
@@ -102,6 +123,8 @@ namespace Nop.Plugin.Misc.MultiTenantStores.Services
 
             return isUsable ? await GetPlanByIdAsync(subscription.TenantPlanId) : null;
         }
+
+        public async Task InsertPlanAsync(TenantPlan plan)
         {
             await _planRepository.InsertAsync(plan);
         }
@@ -224,6 +247,77 @@ namespace Nop.Plugin.Misc.MultiTenantStores.Services
             }
 
             return order.Id;
+        }
+
+        public async Task<TenantStoreSubscription> GetSubscriptionByOwnerAndPlanAsync(int customerId, int planId)
+        {
+            var all = await _subscriptionRepository.GetAllAsync(q =>
+                q.Where(s => s.OwnerCustomerId == customerId && s.TenantPlanId == planId)
+                 .OrderByDescending(s => s.CreatedOnUtc));
+            return all.FirstOrDefault();
+        }
+
+        /// <summary>
+        /// فعال‌سازی اشتراک موجود یک فروشگاه + فعال‌سازی نگاشت دامنه‌ها (دسترسی واقعی فروشگاه).
+        /// فراخوانی مکرر امن است (Idempotent) — اشتراکی که از قبل Active باشد دست نمی‌خورد.
+        /// </summary>
+        public async Task<bool> ActivateSubscriptionAsync(int storeId)
+        {
+            var subscription = await GetSubscriptionByStoreIdAsync(storeId);
+            if (subscription == null)
+                return false;
+
+            if (subscription.Status != SubscriptionStatus.Active)
+            {
+                subscription.Status = SubscriptionStatus.Active;
+                subscription.UpdatedOnUtc = DateTime.UtcNow;
+                await _subscriptionRepository.UpdateAsync(subscription);
+            }
+
+            // فروشگاه فقط پس از فعال‌شدن اشتراک باید قابل دسترسی باشد (نگاشت دامنهٔ غیرفعال → فعال)
+            await _tenantProvisioningService.ActivateTenantStoreAsync(storeId);
+
+            return true;
+        }
+
+        /// <summary>
+        /// برای مسیر «خرید مستقیم پلن از سایت مادر»: اگر فروشگاهی اشتراک ندارد، یک اشتراک Active
+        /// واقعی می‌سازد؛ اگر دارد و غیرفعال است، فعالش می‌کند. سپس دسترسی فروشگاه را فعال می‌کند.
+        /// </summary>
+        public async Task<bool> EnsureSubscriptionActiveAsync(int storeId, int customerId, int planId, int? durationDays = null)
+        {
+            var plan = await GetPlanByIdAsync(planId);
+            if (plan == null)
+                return false;
+
+            var now = DateTime.UtcNow;
+            var subscription = await GetSubscriptionByStoreIdAsync(storeId);
+
+            if (subscription == null)
+            {
+                await _subscriptionRepository.InsertAsync(new TenantStoreSubscription
+                {
+                    StoreId = storeId,
+                    TenantPlanId = planId,
+                    OwnerCustomerId = customerId,
+                    Status = SubscriptionStatus.Active,
+                    StartDateUtc = now,
+                    NextBillingDateUtc = now.AddDays(durationDays ?? 30),
+                    AutoRenew = true,
+                    CreatedOnUtc = now,
+                    UpdatedOnUtc = now
+                });
+            }
+            else if (subscription.Status != SubscriptionStatus.Active)
+            {
+                subscription.TenantPlanId = planId;
+                subscription.Status = SubscriptionStatus.Active;
+                subscription.UpdatedOnUtc = now;
+                await _subscriptionRepository.UpdateAsync(subscription);
+            }
+
+            await _tenantProvisioningService.ActivateTenantStoreAsync(storeId);
+            return true;
         }
 
         public async Task<IList<TenantStoreSubscription>> GetSubscriptionsExpiringInDaysAsync(int days)

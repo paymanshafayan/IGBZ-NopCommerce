@@ -53,7 +53,7 @@ namespace Nop.Plugin.Misc.MultiTenantStores.Data
                 .WithColumn(nameof(TenantStoreSubscription.TenantPlanId)).AsInt32().NotNullable()
                 .WithColumn(nameof(TenantStoreSubscription.OwnerCustomerId)).AsInt32().NotNullable()
                 .WithColumn(nameof(TenantStoreSubscription.Status)).AsInt32().NotNullable()
-                .WithColumn(nameof(TenantStoreSubscription.TrialEndDateUtc)).AsDateTime2().NotNullable()
+                .WithColumn(nameof(TenantStoreSubscription.TrialEndDateUtc)).AsDateTime2().Nullable()
                 .WithColumn(nameof(TenantStoreSubscription.StartDateUtc)).AsDateTime2().NotNullable()
                 .WithColumn(nameof(TenantStoreSubscription.NextBillingDateUtc)).AsDateTime2().NotNullable()
                 .WithColumn(nameof(TenantStoreSubscription.AutoRenew)).AsBoolean().NotNullable()
@@ -253,6 +253,24 @@ namespace Nop.Plugin.Misc.MultiTenantStores.Data
                 .WithColumn(nameof(LandingContentBlock.DetailImageUrlsText)).AsString(int.MaxValue).Nullable()
                 .WithColumn(nameof(LandingContentBlock.DisplayOrder)).AsInt32().NotNullable()
                 .WithColumn(nameof(LandingContentBlock.IsActive)).AsBoolean().NotNullable();
+        }
+    }
+
+    /// <summary>
+    /// ذخیرهٔ DB-محور کدهای OTP ورود با شماره موبایل — به‌جای IMemoryCache که با ری‌استارت اپ یا
+    /// چند نمونه (Multi-Instance) کدهای در انتظار تایید را از دست می‌داد.
+    /// </summary>
+    public class PhoneOtpCodeBuilder : NopEntityBuilder<PhoneOtpCode>
+    {
+        public override void MapEntity(CreateTableExpressionBuilder table)
+        {
+            table
+                .WithColumn(nameof(PhoneOtpCode.StoreId)).AsInt32().NotNullable()
+                .WithColumn(nameof(PhoneOtpCode.PhoneNumber)).AsString(20).NotNullable()
+                .WithColumn(nameof(PhoneOtpCode.CodeHash)).AsString(200).NotNullable()
+                .WithColumn(nameof(PhoneOtpCode.CreatedOnUtc)).AsDateTime2().NotNullable()
+                .WithColumn(nameof(PhoneOtpCode.ExpiresOnUtc)).AsDateTime2().NotNullable()
+                .WithColumn(nameof(PhoneOtpCode.Used)).AsBoolean().NotNullable();
         }
     }
 }

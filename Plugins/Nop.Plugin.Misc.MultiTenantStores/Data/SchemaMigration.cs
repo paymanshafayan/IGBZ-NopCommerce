@@ -105,6 +105,47 @@ namespace Nop.Plugin.Misc.MultiTenantStores.Data
                     .OnColumn(nameof(TenantIntegrationCredential.ProviderKey)).Ascending();
             }
 
+            // قاعدهٔ Idempotency مالی (بخش ۱۸.۶ سند معماری): کسر/واریز با همان
+            // (CustomerId, StoreId, Reason, ReferenceCode) نباید دوبار ثبت شود. این Unique Index
+            // تضمین سطح دیتابیس برای WalletService.TryDebitAsync است تا دو درخواست هم‌زمان (کلیک دوبل
+            // یا Retry) نتوانند دو بار از کیف‌پول کسر کنند. (ReferenceCode خالی/null در SQL Server و
+            // MySQL مجاز به تکرار است، پس فقط تراکنش‌های دارای شناسهٔ یکتا محدود می‌شوند.)
+            if (Schema.Table(nameof(WalletLedger)).Exists()
+                && !Schema.Table(nameof(WalletLedger)).Index("IX_WalletLedger_DebitIdempotency").Exists())
+            {
+                Create.Index("IX_WalletLedger_DebitIdempotency")
+                    .OnTable(nameof(WalletLedger))
+                    .OnColumn(nameof(WalletLedger.CustomerId)).Ascending()
+                    .OnColumn(nameof(WalletLedger.StoreId)).Ascending()
+                    .OnColumn(nameof(WalletLedger.Reason)).Ascending()
+                    .OnColumn(nameof(WalletLedger.ReferenceCode)).Ascending()
+                    .WithOptions().Unique();
+            }
+
+            // جلوگیری از ثبت کمیسیون تکراری روی همان سفارش برای همان معرف (حتی با دو Request هم‌زمان)
+            if (Schema.Table(nameof(AffiliateCommissionLedger)).Exists()
+                && !Schema.Table(nameof(AffiliateCommissionLedger)).Index("IX_AffiliateCommissionLedger_Order_Referrer").Exists())
+            {
+                Create.Index("IX_AffiliateCommissionLedger_Order_Referrer")
+                    .OnTable(nameof(AffiliateCommissionLedger))
+                    .OnColumn(nameof(AffiliateCommissionLedger.OrderId)).Ascending()
+                    .OnColumn(nameof(AffiliateCommissionLedger.ReferrerCustomerId)).Ascending()
+                    .WithOptions().Unique();
+            }
+
+            // جدول پایدار کدهای OTP (به‌جای IMemoryCache — با ری‌استارت/چند نمونه از بین نمی‌رود)
+            if (!Schema.Table(nameof(PhoneOtpCode)).Exists())
+                Create.TableFor<PhoneOtpCode>();
+
+            if (Schema.Table(nameof(PhoneOtpCode)).Exists()
+                && !Schema.Table(nameof(PhoneOtpCode)).Index("IX_PhoneOtpCode_Store_Phone").Exists())
+            {
+                Create.Index("IX_PhoneOtpCode_Store_Phone")
+                    .OnTable(nameof(PhoneOtpCode))
+                    .OnColumn(nameof(PhoneOtpCode.StoreId)).Ascending()
+                    .OnColumn(nameof(PhoneOtpCode.PhoneNumber)).Ascending();
+            }
+
             if (!Schema.Table(nameof(LandingContentBlock)).Exists())
                 Create.TableFor<LandingContentBlock>();
 

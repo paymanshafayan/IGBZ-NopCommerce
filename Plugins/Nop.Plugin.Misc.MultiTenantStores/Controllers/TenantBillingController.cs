@@ -4,6 +4,8 @@ namespace Nop.Plugin.Misc.MultiTenantStores.Controllers
     using System.Threading.Tasks;
     using Microsoft.AspNetCore.Mvc;
     using Nop.Core;
+    using Nop.Core.Domain.Orders;
+    using Nop.Services.Orders;
     using Nop.Plugin.Misc.MultiTenantStores.Services;
     using Nop.Plugin.Misc.MultiTenantStores.Domain;
 
@@ -22,15 +24,21 @@ namespace Nop.Plugin.Misc.MultiTenantStores.Controllers
         private readonly IWorkContext _workContext;
         private readonly ITenantPlanService _tenantPlanService;
         private readonly IParbadPaymentService _paymentService;
+        private readonly IOrderService _orderService;
+        private readonly IOrderProcessingService _orderProcessingService;
 
         public TenantBillingController(
             IWorkContext workContext,
             ITenantPlanService tenantPlanService,
-            IParbadPaymentService paymentService)
+            IParbadPaymentService paymentService,
+            IOrderService orderService,
+            IOrderProcessingService orderProcessingService)
         {
             _workContext = workContext;
             _tenantPlanService = tenantPlanService;
             _paymentService = paymentService;
+            _orderService = orderService;
+            _orderProcessingService = orderProcessingService;
         }
 
         /// <summary>
@@ -120,6 +128,43 @@ namespace Nop.Plugin.Misc.MultiTenantStores.Controllers
             });
         }
 
+        /// <summary>
+        /// تایید واقعی پرداخت سفارش تمدید/ارتقا (بازگشت از درگاه) — مانند مسیر ثبت‌نام، فقط بعد از
+        /// تایید واقعی Parbad (نه صرفاً بازگشت کاربر) سفارش پرداخت‌شده علامت می‌خورد و اشتراک
+        /// فعال می‌شود. CallbackUrl که اپ/سایت مادر به درگاه داده، باید به همین Endpoint اشاره کند.
+        /// </summary>
+        [HttpPost("verify-payment")]
+        public async Task<IActionResult> VerifyRenewalPayment(
+            [FromHeader(Name = "X-Store-Id")] int storeId,
+            [FromBody] RenewalPaymentVerifyDto dto)
+        {
+            if (storeId <= 0 || dto == null || dto.OrderId <= 0 || string.IsNullOrWhiteSpace(dto.TrackingNumber) || dto.AmountToman <= 0)
+                return BadRequest(new { success = false, message = "اطلاعات تایید پرداخت ناقص است." });
+
+            var order = await _orderService.GetOrderByIdAsync(dto.OrderId);
+            if (order == null)
+                return NotFound(new { success = false, message = "سفارش تمدید یافت نشد." });
+
+            var verifyResult = await _paymentService.VerifyPaymentAsync(
+                TenantPlanService.MasterPlatformStoreId, dto.TrackingNumber, dto.AmountToman);
+
+            if (!verifyResult.IsSuccess)
+                return BadRequest(new { success = false, message = verifyResult.Message });
+
+            if (order.PaymentStatusId != (int)PaymentStatus.Paid)
+                await _orderProcessingService.MarkOrderAsPaidAsync(order);
+
+            var subscriptionActivated = await _tenantPlanService.ActivateSubscriptionAsync(storeId);
+
+            return Ok(new
+            {
+                success = true,
+                alreadyProcessed = verifyResult.AlreadyVerifiedBefore,
+                subscriptionActivated,
+                message = "پرداخت تایید شد و اشتراک فروشگاه فعال گردید."
+            });
+        }
+
         private static BillingCycle ParseBillingCycle(string value)
         {
             return value?.Trim().ToLowerInvariant() switch
@@ -129,6 +174,13 @@ namespace Nop.Plugin.Misc.MultiTenantStores.Controllers
                 _ => BillingCycle.Monthly
             };
         }
+    }
+
+    public class RenewalPaymentVerifyDto
+    {
+        public int OrderId { get; set; }
+        public string TrackingNumber { get; set; }
+        public decimal AmountToman { get; set; }
     }
 
     public class RenewalRequestDto

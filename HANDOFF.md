@@ -387,3 +387,53 @@ API را برای فراخوانی Cross-Origin از یک دامنهٔ کامل�
 - الگوی Ledger (SUM = موجودی) برای هر مقدار انباشتی مالی اجباری است؛ هرگز فیلد «موجودی فعلی» جدا نساز.
 - هر عملیات مالی باید Idempotent باشد (شناسهٔ یکتا برای جلوگیری از تکرار).
 - هیچ سرویس یکپارچه‌سازی نباید بدون فراخوانی HTTP واقعی «موفق» اعلام کند.
+
+---
+
+## ۱۶. دور اصلاحات پس از بازبینی مستقل کد (این کامیت)
+
+در بازبینی مستقل کل کدبیس (بدون تغییر) چند مشکل پیدا و در این کامیت رفع شد:
+
+### خطاهای کامپایل (بحرانی)
+1. **`TenantPlanService.cs` — امضای `InsertPlanAsync` حذف شده بود**: یک بلوک بی‌سربرگ
+   `{ await _planRepository.InsertAsync(plan); }` بعد از `GetActivePlanForStoreAsync` باقی مانده بود
+   (یعنی کل پلاگین MultiTenantStores و هر ۳ پلاگین وابسته کامپایل نمی‌شدند). امضا برگردانده شد.
+2. **`TrialEndDateUtc` غیرnullable ولی با `.HasValue`**: خاصیت `TenantStoreSubscription.TrialEndDateUtc`
+   به `DateTime?` تغییر کرد (دو محل استفاده در TenantPlanService و TenantBillingController با
+   `.HasValue`/`.Value` از قبل هماهنگ بودند) + ستون Migration به `.Nullable()` تغییر کرد.
+3. **`Customer.PhoneNumber` در `AdminCustomersController`**: طبق ممیزی مقابل سورس واقعی، فیلد واقعی
+   `Customer.Phone` است (نه `PhoneNumber`) — در دو جا اصلاح شد.
+
+### حلقهٔ ناقص پرداخت ثبت‌نام/تمدید (عملکردی)
+4. **Endpoint تایید پرداخت اضافه شد**: `POST api/mastersite/public/payment/verify`
+   (MasterSiteLandingController) و `POST api/tenant/billing/verify-payment` (TenantBillingController).
+   قبلاً Signup/CreateRenewalOrder لینک درگاه می‌دادند ولی هیچ Verify واقعی وجود نداشت — حالا:
+   تایید واقعی Parbad → `MarkOrderAsPaidAsync` → فعال‌سازی اشتراک و نگاشت دامنه.
+5. **جلوگیری از Provision مجدد در `OrderPaidEventConsumer`**: اگر اشتراکِ PendingPayment همان
+   مشتری+پلن از قبل وجود داشت (مسیر ثبت‌نام)، فقط فعال می‌شود؛ Provision فقط برای خرید مستقیم
+   بدون ثبت‌نام قبلی اجرا می‌شود (و در آن مسیر اشتراک Active + مدت از مبلغ سفارش ساخته می‌شود).
+6. **گیت فعال‌سازی فروشگاه**: نگاشت دامنهٔ فروشگاه جدید برای پلن پولی `IsActive=false` ساخته
+   می‌شود (فقط پس از تایید واقعی پرداخت فعال می‌شود)؛ پلن آزمایشی همان لحظه فعال است.
+7. **`ValidateSubdomainAvailabilityAsync`** حالا نگاشت‌های غیرفعال را هم می‌بیند (متد جدید
+   `HostNameExistsAsync`) تا زیردامنهٔ در انتظار پرداخت دوباره Provision نشود.
+
+### امنیت/صحافی
+8. **`VerifyCustomDomainCnameAsync` واقعی شد**: کوئری DNS دستی (QTYPE=CNAME) به سرور DNS سیستم با
+   پارس‌گر فشرده‌سازی؛ قبلاً فقط resolve شدن دامنه چک می‌شد (هر دامنهٔ زنده‌ای «تایید» می‌شد).
+9. **OTP به دیتابیس منتقل شد**: جدول `PhoneOtpCode` (کد به‌صورت SHA-256) — قبلاً IMemoryCache بود
+   و با ری‌استارت/چند نمونه از بین می‌رفت. حافظه فقط برای throttle ۶۰ ثانیه‌ای باقی ماند.
+10. **کسر کیف‌پول ضد race شد**: Unique Index `IX_WalletLedger_DebitIdempotency` روی
+    (CustomerId, StoreId, Reason, ReferenceCode) + مدیریت تداخل در `TryDebitAsync` (کسر دوبل
+    کلیک هم‌زمان دیگر ممکن نیست). برای کمیسیون Affiliate هم Unique Index روی
+    (OrderId, ReferrerCustomerId) اضافه شد.
+11. **چرخ‌وفلک**: انتخاب جایزه با `RandomNumberGenerator.GetInt32(0, N)` مستقیم (حذف بایاس
+    ماژولار `% Length`).
+12. **واترمارک SKU**: عرض مستطیل پس‌زمینه با `TextMeasurer` اندازه‌گیری می‌شود (قبلاً ۲۲۰px ثابت
+    بود و برای SKUهای بلند سرریز می‌کرد).
+
+### هنوز باز (خارج از این کامیت — نیازمند ورودی خارجی)
+- Endpointهای نمادین AI/ترجمه/BNPL/پرداخت (`*.local`) — نیازمند مستندات واقعی API سرویس‌ها.
+- اجرای `dotnet build` واقعی با سورس nopCommerce 4.90.6 (این محیط سورس/اینترنت ندارد) — این کامیت
+  حداقل خطاهای کامپایلِ قابل‌تشخیصِ ایستا را رفع کرده، ولی بیلد واقعی باید روی سیستم کاربر اجرا شود.
+- پیاده‌سازی `IPaymentMethod` استاندارد برای Storefront (فعلاً پرداخت فقط از مسیر API است).
+- تایید شکل دقیق Payload وب‌هاوک متا (mentions/comments) با یک Webhook واقعی.

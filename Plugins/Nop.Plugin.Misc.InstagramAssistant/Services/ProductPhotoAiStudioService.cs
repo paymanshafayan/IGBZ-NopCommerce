@@ -70,14 +70,22 @@ namespace Nop.Plugin.Misc.InstagramAssistant.Services
             var font = SystemFonts.CreateFont("Arial", 22, FontStyle.Bold);
             var watermarkText = $"کد محصول: {productSku}";
 
-            float padding = 20f;
-            float x = padding;
-            float y = image.Height - 50f;
+            // اندازه‌گیری واقعی متن تا مستطیل پس‌زمینه برای SKUهای بلند هم متناسب باشد
+            // (نسخهٔ قبلی عرض ثابت ۲۲۰px داشت و برای SKUهای بلند متن سرریز می‌کرد).
+            var textBounds = TextMeasurer.MeasureBounds(watermarkText, new TextOptions(font));
+            float padding = 12f;
+
+            var maxRectWidth = Math.Max(1f, image.Width - 4f);
+            var rectWidth = Math.Clamp(textBounds.Width + padding * 2, 1f, maxRectWidth);
+            var rectHeight = Math.Max(1f, textBounds.Height + padding);
+
+            float x = 12f;
+            float y = Math.Max(0f, image.Height - rectHeight - 12f);
 
             image.Mutate(ctx =>
             {
-                ctx.Fill(Color.FromRgba(10, 15, 26, 220), new RectangleF(x - 10, y - 5, 220, 35));
-                ctx.DrawText(watermarkText, font, Color.White, new PointF(x, y));
+                ctx.Fill(Color.FromRgba(10, 15, 26, 220), new RectangleF(x, y, rectWidth, rectHeight));
+                ctx.DrawText(watermarkText, font, Color.White, new PointF(x + padding, y + padding / 2));
             });
 
             using var ms = new MemoryStream();

@@ -60,7 +60,11 @@ namespace Nop.Plugin.Misc.MultiTenantStores.Domain
 
         public SubscriptionStatus Status { get; set; }
 
-        public DateTime TrialEndDateUtc { get; set; }
+        /// <summary>
+        /// پایان دورهٔ آزمایشی — برای پلن‌های پولی (بدون دورهٔ آزمایشی) null است، پس nullable تعریف
+        /// شده تا با چک‌های <c>.HasValue</c> در TenantPlanService و TenantBillingController سازگار باشد.
+        /// </summary>
+        public DateTime? TrialEndDateUtc { get; set; }
         public DateTime StartDateUtc { get; set; }
         public DateTime NextBillingDateUtc { get; set; }
         public bool AutoRenew { get; set; }

@@ -107,15 +107,32 @@ namespace Nop.Plugin.Misc.MultiTenantStores.Services
             if (balance < amountToman)
                 return (false, balance, "موجودی کیف‌پول کافی نیست.");
 
-            await _ledgerRepository.InsertAsync(new WalletLedger
+            try
             {
-                CustomerId = customerId,
-                StoreId = storeId,
-                AmountToman = -amountToman,
-                Reason = reason,
-                ReferenceCode = referenceCode,
-                CreatedOnUtc = DateTime.UtcNow
-            });
+                await _ledgerRepository.InsertAsync(new WalletLedger
+                {
+                    CustomerId = customerId,
+                    StoreId = storeId,
+                    AmountToman = -amountToman,
+                    Reason = reason,
+                    ReferenceCode = referenceCode,
+                    CreatedOnUtc = DateTime.UtcNow
+                });
+            }
+            catch (Exception)
+            {
+                // مسابقهٔ هم‌زمان (کلیک دوبل/Retry هم‌زمان): رکورد با همین ReferenceCode توسط درخواست
+                // دیگری ثبت شده و Unique Index «IX_WalletLedger_DebitIdempotency» درج را رد کرده است.
+                // در این حالت کسر دوم نباید اتفاق بیفتد — همان نتیجهٔ موفقِ درخواست اول برگردانده می‌شود.
+                var concurrentDuplicate = await _ledgerRepository.GetAllAsync(q =>
+                    q.Where(e => e.CustomerId == customerId && e.StoreId == storeId
+                        && e.Reason == reason && e.ReferenceCode == referenceCode));
+
+                if (concurrentDuplicate.Any())
+                    return (true, await GetBalanceAsync(customerId, storeId), null);
+
+                throw;
+            }
 
             var newBalance = await GetBalanceAsync(customerId, storeId);
             return (true, newBalance, null);

@@ -4,6 +4,7 @@ namespace Nop.Plugin.Misc.MultiTenantStores.Services
     using System.Threading.Tasks;
     using Nop.Core.Domain.Customers;
     using Nop.Core.Domain.Stores;
+    using Nop.Data;
     using Nop.Services.Customers;
     using Nop.Services.Common;
     using Nop.Services.Stores;
@@ -24,19 +25,22 @@ namespace Nop.Plugin.Misc.MultiTenantStores.Services
         private readonly Nop.Services.Customers.ICustomerRegistrationService _customerRegistrationService;
         private readonly IGenericAttributeService _genericAttributeService;
         private readonly IStoreDomainMappingService _domainMappingService;
+        private readonly IRepository<TenantPlan> _planRepository;
 
         public TenantProvisioningService(
             IStoreService storeService,
             ICustomerService customerService,
             Nop.Services.Customers.ICustomerRegistrationService customerRegistrationService,
             IGenericAttributeService genericAttributeService,
-            IStoreDomainMappingService domainMappingService)
+            IStoreDomainMappingService domainMappingService,
+            IRepository<TenantPlan> planRepository)
         {
             _storeService = storeService;
             _customerService = customerService;
             _customerRegistrationService = customerRegistrationService;
             _genericAttributeService = genericAttributeService;
             _domainMappingService = domainMappingService;
+            _planRepository = planRepository;
         }
 
         public async Task<bool> ValidateSubdomainAvailabilityAsync(string subdomain)
@@ -50,8 +54,13 @@ namespace Nop.Plugin.Misc.MultiTenantStores.Services
                 return false;
 
             var fullHost = $"{cleanSubdomain}.market.com";
-            var existing = await _domainMappingService.GetByHostNameAsync(fullHost);
-            return existing == null;
+
+            // ⚠️ مهم: باید هر نگاشتِ موجود را ببیند، حتی غیرفعال‌ها — نگاشت فروشگاه در انتظار پرداخت
+            // عمداً IsActive=false است و GetByHostNameAsync فقط نگاشت‌های فعال را می‌بیند؛ اگر این‌جا
+            // فقط از آن استفاده می‌شد، پرداخت دوباره/Consumer می‌توانست یک فروشگاه تکراری روی همان
+            // زیردامنه بسازد.
+            var exists = await _domainMappingService.HostNameExistsAsync(fullHost);
+            return !exists;
         }
 
         /// <summary>
@@ -89,12 +98,22 @@ namespace Nop.Plugin.Misc.MultiTenantStores.Services
             await _storeService.InsertStoreAsync(store);
 
             // ۲. ثبت نگاشت اولیه دامنه
+            // ⚠️ گیت فعال‌سازی: پلن آزمایشی همان لحظه فعال می‌شود؛ پلن پولی فقط پس از تایید واقعی
+            // پرداخت (ActivateTenantStoreAsync از مسیر Verify/Consumer) — تا مشتری قبل از پرداخت
+            // به فروشگاه دسترسی پیدا نکند.
+            var isTrialPlan = false;
+            if (request.PlanId > 0)
+            {
+                var plan = await _planRepository.GetByIdAsync(request.PlanId);
+                isTrialPlan = plan != null && plan.TrialDurationDays > 0;
+            }
+
             var domainMapping = new StoreDomainMapping
             {
                 StoreId = store.Id,
                 HostName = fullHost,
                 IsPrimaryDomain = true,
-                IsActive = true,
+                IsActive = isTrialPlan,
                 IsSslVerified = true,
                 CreatedOnUtc = DateTime.UtcNow
             };
