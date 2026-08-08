@@ -25,6 +25,11 @@ namespace Nop.Plugin.Misc.MultiTenantStores.Services
     {
         private const string ProviderKeyPrefix = "parbad.";
 
+        // ── آدرس‌های واقعی pay.ir (مستندات رسمی: https://docs.pay.ir/gateway) ──
+        private const string PayIrSendEndpoint = "https://pay.ir/pg/send";
+        private const string PayIrVerifyEndpoint = "https://pay.ir/pg/verify";
+        private const string PayIrGatewayPage = "https://pay.ir/pg";
+
         private readonly IHttpClientFactory _httpClientFactory;
         private readonly IRepository<TenantIntegrationCredential> _credentialRepository;
         private readonly IRepository<PaymentTransactionLedger> _ledgerRepository;
@@ -39,8 +44,15 @@ namespace Nop.Plugin.Misc.MultiTenantStores.Services
             _ledgerRepository = ledgerRepository;
         }
 
+        private static bool IsPayIr(string gatewayName) =>
+            string.Equals(gatewayName, "payir", StringComparison.OrdinalIgnoreCase);
+
         public async Task<ParbadPaymentRequestResult> RequestPaymentAsync(int storeId, int orderId, decimal amountToman, string gatewayName, string callbackUrl)
         {
+            // مسیر واقعی pay.ir (مستندات رسمی) — در غیر این صورت الگوی Parbad چندبانکه
+            if (IsPayIr(gatewayName))
+                return await RequestPayIrAsync(storeId, orderId, amountToman, gatewayName, callbackUrl);
+
             var credential = await GetActiveCredentialAsync(storeId, gatewayName);
             if (credential == null)
             {
@@ -120,6 +132,10 @@ namespace Nop.Plugin.Misc.MultiTenantStores.Services
             var existingLedger = (await _ledgerRepository.GetAllAsync(q =>
                 q.Where(l => l.StoreId == storeId && l.TrackingNumber == trackingNumber)))
                 .FirstOrDefault();
+
+            // مسیر واقعی pay.ir — تایید با token (که در URL بازگشت از درگاه آمده)
+            if (existingLedger != null && IsPayIr(existingLedger.GatewayName))
+                return await VerifyPayIrAsync(storeId, trackingNumber, amountToman, existingLedger);
 
             // جلوگیری از تایید مضاعف: اگر قبلاً با موفقیت تایید شده، دوباره اعتبار واریز نشود
             if (existingLedger?.State == PaymentTransactionState.VerifiedSuccess)
@@ -207,6 +223,162 @@ namespace Nop.Plugin.Misc.MultiTenantStores.Services
             };
         }
 
+        // ────────────────────────── pay.ir (رسمی) ──────────────────────────
+
+        /// <summary>
+        /// درخواست پرداخت از pay.ir طبق مستندات رسمی:
+        /// POST https://pay.ir/pg/send ← { api, amount(ریال), redirect, factorNumber, description }
+        /// پاسخ موفق: { status: 1, token } — سپس کاربر به https://pay.ir/pg/{token} هدایت می‌شود.
+        /// توکن در ledger به‌عنوان TrackingNumber ثبت می‌شود چون در URL بازگشت از درگاه می‌آید.
+        /// </summary>
+        private async Task<ParbadPaymentRequestResult> RequestPayIrAsync(int storeId, int orderId, decimal amountToman, string gatewayName, string callbackUrl)
+        {
+            var credential = await GetActiveCredentialAsync(storeId, gatewayName);
+            if (credential == null)
+            {
+                return new ParbadPaymentRequestResult
+                {
+                    IsSuccess = false,
+                    GatewayName = gatewayName,
+                    Message = "کلید API درگاه pay.ir برای این فروشگاه فعال یا تایید نشده است."
+                };
+            }
+
+            var factorNumber = $"INV-{storeId}-{orderId}-{Guid.NewGuid():N}".Substring(0, 32);
+            var httpClient = _httpClientFactory.CreateClient("ParbadGateway");
+
+            string rawBody;
+            PayIrSendResponse payload;
+            try
+            {
+                var response = await httpClient.PostAsJsonAsync(PayIrSendEndpoint, new PayIrSendPayload
+                {
+                    Api = credential.ApiKey,
+                    Amount = (long)(amountToman * 10),
+                    Redirect = callbackUrl,
+                    FactorNumber = factorNumber,
+                    Description = $"سفارش {orderId}"
+                });
+
+                rawBody = await response.Content.ReadAsStringAsync();
+                payload = response.IsSuccessStatusCode
+                    ? await response.Content.ReadFromJsonAsync<PayIrSendResponse>()
+                    : null;
+            }
+            catch (HttpRequestException ex)
+            {
+                rawBody = $"HttpRequestException: {ex.Message}";
+                payload = null;
+            }
+
+            if (payload != null && payload.Status == 1 && !string.IsNullOrWhiteSpace(payload.Token))
+            {
+                // ثبت ledger با TrackingNumber = token (چون callback کاربر token را برمی‌گرداند)
+                await LogLedgerAsync(storeId, orderId, gatewayName, payload.Token, amountToman,
+                    PaymentTransactionState.RedirectedToBank, null, rawBody);
+
+                return new ParbadPaymentRequestResult
+                {
+                    IsSuccess = true,
+                    TrackingNumber = payload.Token,
+                    RedirectUrl = $"{PayIrGatewayPage}/{payload.Token}",
+                    GatewayName = gatewayName,
+                    Message = "درخواست پرداخت با موفقیت ثبت شد و کاربر به درگاه pay.ir منتقل می‌شود."
+                };
+            }
+
+            await LogLedgerAsync(storeId, orderId, gatewayName, factorNumber, amountToman,
+                PaymentTransactionState.Requested, null, rawBody);
+
+            return new ParbadPaymentRequestResult
+            {
+                IsSuccess = false,
+                GatewayName = gatewayName,
+                TrackingNumber = factorNumber,
+                Message = payload?.ErrorMessage ?? payload?.Message ?? "درگاه pay.ir درخواست را رد کرد."
+            };
+        }
+
+        /// <summary>
+        /// تایید تراکنش pay.ir طبق مستندات رسمی:
+        /// POST https://pay.ir/pg/verify ← { api, token } → { status, amount, transId, ... }
+        /// موفقیت فقط وقتی است که status==1 و مبلغ تاییدشده دقیقاً برابر مبلغ سفارش (به ریال) باشد.
+        /// </summary>
+        private async Task<ParbadVerifyResult> VerifyPayIrAsync(int storeId, string trackingNumber, decimal amountToman, PaymentTransactionLedger existingLedger)
+        {
+            // جلوگیری از تایید مضاعف (Replay)
+            if (existingLedger.State == PaymentTransactionState.VerifiedSuccess)
+            {
+                return new ParbadVerifyResult
+                {
+                    IsSuccess = true,
+                    AlreadyVerifiedBefore = true,
+                    RefId = existingLedger.BankRefId,
+                    Message = "این تراکنش پیش‌تر با موفقیت تایید و ثبت شده است (از تایید مضاعف جلوگیری شد)."
+                };
+            }
+
+            var credential = await GetActiveCredentialAsync(storeId, existingLedger.GatewayName);
+            if (credential == null)
+            {
+                return new ParbadVerifyResult { IsSuccess = false, Message = "کلید API درگاه pay.ir یافت نشد." };
+            }
+
+            var httpClient = _httpClientFactory.CreateClient("ParbadGateway");
+
+            PayIrVerifyResponse verifyPayload;
+            string rawBody;
+            try
+            {
+                var response = await httpClient.PostAsJsonAsync(PayIrVerifyEndpoint, new PayIrVerifyPayload
+                {
+                    Api = credential.ApiKey,
+                    Token = trackingNumber
+                });
+
+                rawBody = await response.Content.ReadAsStringAsync();
+                verifyPayload = response.IsSuccessStatusCode
+                    ? await response.Content.ReadFromJsonAsync<PayIrVerifyResponse>()
+                    : null;
+            }
+            catch (HttpRequestException ex)
+            {
+                rawBody = $"HttpRequestException: {ex.Message}";
+                verifyPayload = null;
+            }
+
+            // مقایسهٔ دقیق مبلغ اعلامی pay.ir با مبلغ سفارش (جلوگیری از دستکاری مبلغ)
+            var verified = verifyPayload != null
+                && verifyPayload.Status == 1
+                && verifyPayload.Amount == (long)(amountToman * 10);
+
+            existingLedger.State = verified
+                ? PaymentTransactionState.VerifiedSuccess
+                : PaymentTransactionState.VerifiedFailed;
+            existingLedger.BankRefId = verifyPayload?.TransId;
+            existingLedger.RawGatewayResponse = rawBody;
+            existingLedger.VerifiedOnUtc = DateTime.UtcNow;
+            await _ledgerRepository.UpdateAsync(existingLedger);
+
+            if (!verified)
+            {
+                return new ParbadVerifyResult
+                {
+                    IsSuccess = false,
+                    Message = verifyPayload == null
+                        ? "پاسخ نامعتبر یا ناموفق از درگاه pay.ir دریافت شد."
+                        : "مبلغ تایید شده توسط pay.ir با مبلغ سفارش مطابقت ندارد."
+                };
+            }
+
+            return new ParbadVerifyResult
+            {
+                IsSuccess = true,
+                RefId = verifyPayload.TransId,
+                Message = "پرداخت با موفقیت توسط pay.ir تایید شد."
+            };
+        }
+
         private async Task<TenantIntegrationCredential> GetActiveCredentialAsync(int storeId, string gatewayName)
         {
             var providerKey = $"{ProviderKeyPrefix}{gatewayName}".ToLowerInvariant();
@@ -277,5 +449,41 @@ namespace Nop.Plugin.Misc.MultiTenantStores.Services
         [JsonPropertyName("success")] public bool Success { get; set; }
         [JsonPropertyName("refId")] public string RefId { get; set; }
         [JsonPropertyName("amountRials")] public decimal AmountRials { get; set; }
+    }
+
+    // ── DTOهای pay.ir (طبق مستندات رسمی docs.pay.ir/gateway) ──
+
+    internal class PayIrSendPayload
+    {
+        [JsonPropertyName("api")] public string Api { get; set; }
+        [JsonPropertyName("amount")] public long Amount { get; set; }
+        [JsonPropertyName("redirect")] public string Redirect { get; set; }
+        [JsonPropertyName("mobile")] public string Mobile { get; set; }
+        [JsonPropertyName("factorNumber")] public string FactorNumber { get; set; }
+        [JsonPropertyName("description")] public string Description { get; set; }
+    }
+
+    internal class PayIrSendResponse
+    {
+        [JsonPropertyName("status")] public int Status { get; set; }
+        [JsonPropertyName("token")] public string Token { get; set; }
+        [JsonPropertyName("errorMessage")] public string ErrorMessage { get; set; }
+        [JsonPropertyName("message")] public string Message { get; set; }
+    }
+
+    internal class PayIrVerifyPayload
+    {
+        [JsonPropertyName("api")] public string Api { get; set; }
+        [JsonPropertyName("token")] public string Token { get; set; }
+    }
+
+    internal class PayIrVerifyResponse
+    {
+        [JsonPropertyName("status")] public int Status { get; set; }
+        [JsonPropertyName("amount")] public long Amount { get; set; }
+        [JsonPropertyName("transId")] public string TransId { get; set; }
+        [JsonPropertyName("factorNumber")] public string FactorNumber { get; set; }
+        [JsonPropertyName("cardNumber")] public string CardNumber { get; set; }
+        [JsonPropertyName("message")] public string Message { get; set; }
     }
 }

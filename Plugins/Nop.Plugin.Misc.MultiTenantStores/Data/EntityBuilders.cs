@@ -273,4 +273,59 @@ namespace Nop.Plugin.Misc.MultiTenantStores.Data
                 .WithColumn(nameof(PhoneOtpCode.Used)).AsBoolean().NotNullable();
         }
     }
+
+    /// <summary>وضعیت هر آیتم از چک‌لیست «فروشگاه‌ت رو بترکون» به‌ازای هر فروشگاه.</summary>
+    public class LaunchChecklistItemStateBuilder : NopEntityBuilder<LaunchChecklistItemState>
+    {
+        public override void MapEntity(CreateTableExpressionBuilder table)
+        {
+            table
+                .WithColumn(nameof(LaunchChecklistItemState.StoreId)).AsInt32().NotNullable()
+                .WithColumn(nameof(LaunchChecklistItemState.ItemKey)).AsString(100).NotNullable()
+                .WithColumn(nameof(LaunchChecklistItemState.Status)).AsInt32().NotNullable()
+                .WithColumn(nameof(LaunchChecklistItemState.CompletedOnUtc)).AsDateTime2().Nullable()
+                .WithColumn(nameof(LaunchChecklistItemState.UpdatedOnUtc)).AsDateTime2().NotNullable();
+        }
+    }
+
+    /// <summary>اعتبارنامه‌های BNPL (دیجی‌پی/اسنپ‌پی).</summary>
+    public class BnplCredentialBuilder : NopEntityBuilder<BnplCredential>
+    {
+        public override void MapEntity(CreateTableExpressionBuilder table)
+        {
+            table
+                .WithColumn(nameof(BnplCredential.StoreId)).AsInt32().NotNullable()
+                .WithColumn(nameof(BnplCredential.ProviderKey)).AsString(50).NotNullable()
+                .WithColumn(nameof(BnplCredential.Username)).AsString(200).Nullable()
+                .WithColumn(nameof(BnplCredential.Password)).AsString(500).Nullable()
+                .WithColumn(nameof(BnplCredential.ClientId)).AsString(200).Nullable()
+                .WithColumn(nameof(BnplCredential.ClientSecret)).AsString(500).Nullable()
+                .WithColumn(nameof(BnplCredential.Environment)).AsString(20).Nullable()
+                .WithColumn(nameof(BnplCredential.BaseUrlOverride)).AsString(500).Nullable()
+                .WithColumn(nameof(BnplCredential.IsActive)).AsBoolean().NotNullable()
+                .WithColumn(nameof(BnplCredential.CreatedOnUtc)).AsDateTime2().NotNullable()
+                .WithColumn(nameof(BnplCredential.UpdatedOnUtc)).AsDateTime2().NotNullable();
+        }
+    }
+
+    /// <summary>رکورد پرداخت BNPL (برای پیگیری/Verify).</summary>
+    public class BnplPaymentRecordBuilder : NopEntityBuilder<BnplPaymentRecord>
+    {
+        public override void MapEntity(CreateTableExpressionBuilder table)
+        {
+            table
+                .WithColumn(nameof(BnplPaymentRecord.StoreId)).AsInt32().NotNullable()
+                .WithColumn(nameof(BnplPaymentRecord.OrderId)).AsInt32().NotNullable()
+                .WithColumn(nameof(BnplPaymentRecord.CustomerId)).AsInt32().NotNullable()
+                .WithColumn(nameof(BnplPaymentRecord.ProviderKey)).AsString(50).NotNullable()
+                .WithColumn(nameof(BnplPaymentRecord.TransactionId)).AsString(100).NotNullable()
+                .WithColumn(nameof(BnplPaymentRecord.PaymentToken)).AsString(300).Nullable()
+                .WithColumn(nameof(BnplPaymentRecord.AmountToman)).AsDecimal(18, 4).NotNullable()
+                .WithColumn(nameof(BnplPaymentRecord.Status)).AsInt32().NotNullable()
+                .WithColumn(nameof(BnplPaymentRecord.RawRequestJson)).AsString(int.MaxValue).Nullable()
+                .WithColumn(nameof(BnplPaymentRecord.RawResponseJson)).AsString(int.MaxValue).Nullable()
+                .WithColumn(nameof(BnplPaymentRecord.CreatedOnUtc)).AsDateTime2().NotNullable()
+                .WithColumn(nameof(BnplPaymentRecord.VerifiedOnUtc)).AsDateTime2().Nullable();
+        }
+    }
 }

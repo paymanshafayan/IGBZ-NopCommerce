@@ -25,6 +25,9 @@
     <None Remove="Views\TenantPlans\CreateOrUpdate.cshtml" />
     <None Remove="Views\LandingContentBlocks\Index.cshtml" />
     <None Remove="Views\LandingContentBlocks\CreateOrUpdate.cshtml" />
+    <None Remove="Views\Shared\Components\LaunchChecklist\Default.cshtml" />
+    <None Remove="Views\BnplAdmin\Index.cshtml" />
+    <None Remove="Views\BnplAdmin\Edit.cshtml" />
   </ItemGroup>
 
   <ItemGroup>
@@ -59,6 +62,15 @@
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </Content>
     <Content Include="Views\LandingContentBlocks\CreateOrUpdate.cshtml">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+    <Content Include="Views\Shared\Components\LaunchChecklist\Default.cshtml">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+    <Content Include="Views\BnplAdmin\Index.cshtml">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+    <Content Include="Views\BnplAdmin\Edit.cshtml">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </Content>
   </ItemGroup>

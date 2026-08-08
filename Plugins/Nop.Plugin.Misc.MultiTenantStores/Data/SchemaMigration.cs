@@ -150,6 +150,47 @@ namespace Nop.Plugin.Misc.MultiTenantStores.Data
             if (!Schema.Table(nameof(LandingContentBlock)).Exists())
                 Create.TableFor<LandingContentBlock>();
 
+            // جدول وضعیت چک‌لیست «فروشگاه‌ت رو بترکون» (هر آیتم دستی به‌ازای هر فروشگاه)
+            if (!Schema.Table(nameof(LaunchChecklistItemState)).Exists())
+                Create.TableFor<LaunchChecklistItemState>();
+
+            if (Schema.Table(nameof(LaunchChecklistItemState)).Exists()
+                && !Schema.Table(nameof(LaunchChecklistItemState)).Index("IX_LaunchChecklistItemState_Store_Item").Exists())
+            {
+                Create.Index("IX_LaunchChecklistItemState_Store_Item")
+                    .OnTable(nameof(LaunchChecklistItemState))
+                    .OnColumn(nameof(LaunchChecklistItemState.StoreId)).Ascending()
+                    .OnColumn(nameof(LaunchChecklistItemState.ItemKey)).Ascending()
+                    .WithOptions().Unique();
+            }
+
+            // ── BNPL (دیجی‌پی/اسنپ‌پی) ──
+            if (!Schema.Table(nameof(BnplCredential)).Exists())
+                Create.TableFor<BnplCredential>();
+
+            if (Schema.Table(nameof(BnplCredential)).Exists()
+                && !Schema.Table(nameof(BnplCredential)).Index("IX_BnplCredential_Store_Provider").Exists())
+            {
+                Create.Index("IX_BnplCredential_Store_Provider")
+                    .OnTable(nameof(BnplCredential))
+                    .OnColumn(nameof(BnplCredential.StoreId)).Ascending()
+                    .OnColumn(nameof(BnplCredential.ProviderKey)).Ascending()
+                    .WithOptions().Unique();
+            }
+
+            if (!Schema.Table(nameof(BnplPaymentRecord)).Exists())
+                Create.TableFor<BnplPaymentRecord>();
+
+            if (Schema.Table(nameof(BnplPaymentRecord)).Exists()
+                && !Schema.Table(nameof(BnplPaymentRecord)).Index("IX_BnplPaymentRecord_Store_Provider_Trans").Exists())
+            {
+                Create.Index("IX_BnplPaymentRecord_Store_Provider_Trans")
+                    .OnTable(nameof(BnplPaymentRecord))
+                    .OnColumn(nameof(BnplPaymentRecord.StoreId)).Ascending()
+                    .OnColumn(nameof(BnplPaymentRecord.ProviderKey)).Ascending()
+                    .OnColumn(nameof(BnplPaymentRecord.TransactionId)).Ascending();
+            }
+
             // --- دادهٔ اولیهٔ واقعی سایت مادر (نه دادهٔ فرضی؛ محتوای واقعی برای شروع، کاملاً از پنل
             // مدیریت قابل ویرایش/حذف طبق درخواست کاربر) — فقط یک‌بار در نصب اجرا می‌شود. ---
             SeedDefaultTenantPlans();

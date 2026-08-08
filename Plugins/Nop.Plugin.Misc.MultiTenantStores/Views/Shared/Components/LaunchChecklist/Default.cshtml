@@ -1,0 +1,97 @@
+@model Nop.Plugin.Misc.MultiTenantStores.Components.LaunchChecklistModel
+@using System.Linq
+
+@{
+    var markDoneUrl = Url.Action("MarkDone", "LaunchChecklist", new { area = "Admin" });
+    var markLaterUrl = Url.Action("MarkLater", "LaunchChecklist", new { area = "Admin" });
+}
+
+<div class="card card-default mb-4" dir="rtl">
+    <div class="card-header" style="background: linear-gradient(90deg, #7b2ff7, #f107a3); color: #fff;">
+        <h5 class="mb-0">🔥 با این قدم‌ها فروشگاه‌ت رو می‌ترکونی!</h5>
+        <small>@Model.PendingCount مورد در انتظار — هر مورد را که انجام دادی تیک بزن</small>
+    </div>
+
+    <div class="card-body" style="max-height: 420px; overflow-y: auto;">
+        @if (!Model.Items.Any())
+        {
+            <div class="text-center text-success py-3">
+                <h5>🎉 همهٔ موارد انجام شده! فروشگاه‌ت آمادهٔ انفجار است.</h5>
+            </div>
+        }
+
+        @foreach (var item in Model.Items)
+        {
+            var isDone = item.Status == Nop.Plugin.Misc.MultiTenantStores.Domain.LaunchChecklistStatus.Done;
+            var isSnoozed = item.Status == Nop.Plugin.Misc.MultiTenantStores.Domain.LaunchChecklistStatus.Snoozed;
+
+            @if (isSnoozed) { continue; }
+
+            <div class="row align-items-center py-2 border-bottom @(isDone ? "bg-success-light" : "")" style="border-bottom-color:#eee !important;">
+                <div class="col-md-1 text-center" style="font-size:22px;">@item.IconEmoji</div>
+
+                <div class="col-md-7">
+                    <div class="font-weight-bold">@item.Title</div>
+                    <div class="text-muted small">@item.Description</div>
+
+                    @if (item.IsAutoDetected)
+                    {
+                        <span class="badge @(isDone ? "badge-success" : "badge-warning") mt-1">
+                            @item.AutoStatusLabel
+                        </span>
+                    }
+
+                    @if (item.GuideSteps != null && item.GuideSteps.Count > 0)
+                    {
+                        <details class="mt-1">
+                            <summary class="small text-info" style="cursor:pointer;">📖 راهنمای گام‌به‌گام</summary>
+                            <ol class="small mt-2 mb-0" style="padding-inline-start: 1.2rem;">
+                                @foreach (var step in item.GuideSteps)
+                                {
+                                    <li class="mb-1">@step</li>
+                                }
+                            </ol>
+                        </details>
+                    }
+                </div>
+
+                <div class="col-md-4 text-left">
+                    @if (isDone)
+                    {
+                        <span class="badge badge-success">✓ انجام شده</span>
+                    }
+                    else if (!item.IsAutoDetected)
+                    {
+                        <form method="post" action="@markDoneUrl" style="display:inline-block;">
+                            @Html.AntiForgeryToken()
+                            <input type="hidden" name="itemKey" value="@item.ItemKey" />
+                            <button type="submit" class="btn btn-sm btn-success">✓ انجام دادم</button>
+                        </form>
+                        <form method="post" action="@markLaterUrl" style="display:inline-block;">
+                            @Html.AntiForgeryToken()
+                            <input type="hidden" name="itemKey" value="@item.ItemKey" />
+                            <button type="submit" class="btn btn-sm btn-secondary">بعداً</button>
+                        </form>
+                    }
+                    else
+                    {
+                        <span class="badge badge-warning">در انتظار اتصال</span>
+
+                        @* ادمین فروشگاه باید خودش در پنل مدیریت (بخش API Key/اتصالات یا پنل BNPL) تنظیم کند *@
+                        if (!string.IsNullOrWhiteSpace(item.AdminActionUrl))
+                        {
+                            <a href="@Url.Content(item.AdminActionUrl)" class="btn btn-sm btn-primary mt-1 d-block" style="max-width:200px;">
+                                ⚙️ @(item.AdminActionLabel ?? "تنظیم در پنل")
+                            </a>
+                        }
+                    }
+
+                    @if (!string.IsNullOrWhiteSpace(item.GuideUrl))
+                    {
+                        <a href="@item.GuideUrl" target="_blank" rel="noopener" class="btn btn-sm btn-outline-info">راهنما</a>
+                    }
+                </div>
+            </div>
+        }
+    </div>
+</div>

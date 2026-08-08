@@ -11,13 +11,18 @@ namespace Nop.Plugin.Misc.MultiTenantStores
     using Nop.Core.Domain.ScheduleTasks;
     using Nop.Services.Plugins;
     using Nop.Services.Common;
+    using Nop.Services.Cms;
     using Nop.Services.Localization;
     using Nop.Services.ScheduleTasks;
     using Nop.Plugin.Misc.MultiTenantStores.Services;
     using Nop.Plugin.Misc.MultiTenantStores.Infrastructure;
     using Nop.Plugin.Misc.MultiTenantStores.Infrastructure.Filters;
 
-    public class MultiTenantStoresPlugin : BasePlugin, IMiscPlugin
+    /// <summary>
+    /// پلاگین پایهٔ چندفروشندگی. علاوه بر IMiscPlugin، ویجت «فروشگاه‌ت رو بترکون» (چک‌لیست
+    /// راه‌اندازی/رشد فروشگاه) را در زون بالای محتوای ادمین تزریق می‌کند.
+    /// </summary>
+    public class MultiTenantStoresPlugin : BasePlugin, IMiscPlugin, IWidgetPlugin
     {
         private readonly ILocalizationService _localizationService;
         private readonly IScheduleTaskService _scheduleTaskService;
@@ -26,6 +31,19 @@ namespace Nop.Plugin.Misc.MultiTenantStores
         {
             _localizationService = localizationService;
             _scheduleTaskService = scheduleTaskService;
+        }
+
+        public bool HideInWidgetList => false;
+
+        /// <summary>ویجت چک‌لیست فقط در زون بالای محتوای پنل ادمین تزریق می‌شود (خودِ کامپوننت تصمیم می‌گیرد فقط روی داشبورد رندر شود).</summary>
+        public Task<IList<string>> GetWidgetZonesAsync()
+        {
+            return Task.FromResult<IList<string>>(new List<string> { "admin_content_before" });
+        }
+
+        public Type GetWidgetViewComponent(string widgetZone)
+        {
+            return typeof(Components.LaunchChecklistViewComponent);
         }
 
         public override async Task InstallAsync()
@@ -103,6 +121,9 @@ namespace Nop.Plugin.Misc.MultiTenantStores
             services.AddScoped<ITenantProvisioningService, TenantProvisioningService>();
             services.AddScoped<ITenantPlanService, TenantPlanService>();
             services.AddScoped<ITenantIntegrationCredentialService, TenantIntegrationCredentialService>();
+            services.AddScoped<ILaunchChecklistService, LaunchChecklistService>();
+            services.AddScoped<IVirtualTryOnService, VirtualTryOnService>();
+            services.AddScoped<IBnplService, BnplService>();
             services.AddScoped<IAffiliateMarketingService, AffiliateMarketingService>();
             services.AddScoped<ICourseService, CourseService>();
             services.AddScoped<IWalletService, WalletService>();
@@ -183,12 +204,15 @@ namespace Nop.Plugin.Misc.MultiTenantStores
                 return new LmsAndVideoSecurityService(hmacSecret);
             });
 
-            // SnappPayBnplGateway یک HttpClient اختصاصی می‌گیرد (Typed Client)
-            services.AddHttpClient<SnappPayBnplGateway>();
 
             // HttpClientهای نام‌گذاری‌شدهٔ مورد استفاده در ParbadPaymentService/CryptoAndTranslationService/
             // MarketplaceOmnichannelService/LogisticsAndShippingService/SeoAndAdNetworksFeedService
             services.AddHttpClient("ParbadGateway");
+            // BNPL: دیجی‌پی + اسنپ‌پی
+            services.AddHttpClient("BnplGateway");
+            // پرو لباس IDM-VTON: Endpoint محلی + Replicate ابری (فال‌بک)
+            services.AddHttpClient("VirtualTryOn");
+            services.AddHttpClient("ReplicateApi");
             services.AddHttpClient("NowPayments");
             services.AddHttpClient("TranslationProvider");
             services.AddHttpClient("DigikalaOpenApi");

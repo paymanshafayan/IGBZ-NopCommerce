@@ -320,7 +320,7 @@ namespace Nop.Plugin.Misc.MasterSiteHub.Controllers
             });
         }
 
-        private static object MapBlockSummary(Domain.LandingContentBlock block) => new
+        private static object MapBlockSummary(LandingContentBlock block) => new
         {
             pageKey = block.PageKey,
             menuTitle = block.MenuTitle,

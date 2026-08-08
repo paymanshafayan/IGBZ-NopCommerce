@@ -47,6 +47,7 @@ namespace Nop.Plugin.Misc.MultiTenantStores.Services
         private static readonly System.Collections.Generic.Dictionary<string, ProviderMetadata> Providers = new()
         {
             ["parbad.zarinpal"] = new() { DisplayName = "زرین‌پال (Parbad)", GuideUrl = "https://help.zarinpal.com/" },
+            ["parbad.payir"] = new() { DisplayName = "پی‌آی‌آر (pay.ir)", GuideUrl = "https://docs.pay.ir/gateway/" },
             ["parbad.mellat"] = new() { DisplayName = "به‌پرداخت ملت (Parbad)", GuideUrl = "https://behpardakht.com/" },
             ["parbad.saman"] = new() { DisplayName = "سامان (سپ) (Parbad)", GuideUrl = "https://sep.shaparak.ir/" },
             ["parbad.parsian"] = new() { DisplayName = "پارسیان (Parbad)", GuideUrl = "https://pec.shaparak.ir/" },
@@ -73,6 +74,11 @@ namespace Nop.Plugin.Misc.MultiTenantStores.Services
             ["kavenegar"] = new() { DisplayName = "کاوه‌نگار (پیامک/OTP)", GuideUrl = "https://kavenegar.com/rest.html" },
             ["triboon"] = new() { DisplayName = "تریبون (رپورتاژ)", GuideUrl = "https://triboon.co/" },
             ["instagram.graph"] = new() { DisplayName = "Instagram Graph API (توکن دسترسی صفحه/کسب‌وکار)", GuideUrl = "https://developers.facebook.com/docs/instagram-api/" },
+            ["virtual-tryon"] = new()
+            {
+                DisplayName = "پرو لباس هوش مصنوعی (IDM-VTON — محلی/ابری)",
+                GuideUrl = "https://github.com/yisol/IDM-VTON"
+            },
             ["instagram.oauth"] = new() { DisplayName = "ورود مشتریان با اینستاگرام (Business Login App ID/Secret)", GuideUrl = "https://developers.facebook.com/docs/instagram-platform/instagram-api-with-instagram-login/business-login" }
         };
 

@@ -1,0 +1,88 @@
+@model Nop.Plugin.Misc.MultiTenantStores.Domain.BnplCredential
+
+@{
+    Layout = "_AdminLayout";
+    ViewBag.Title = "تنظیمات اعتبارنامهٔ BNPL";
+}
+
+<div class="content-header clearfix">
+    <h1 class="float-left">تنظیمات BNPL</h1>
+    <div class="float-right">
+        <a asp-action="Index" class="btn btn-default">بازگشت</a>
+    </div>
+</div>
+
+<section class="content">
+    <div class="container-fluid">
+        <form asp-action="Save" method="post">
+            <div class="card card-default">
+                <div class="card-body">
+                    @if (Model?.Id > 0)
+                    {
+                        <input type="hidden" asp-for="Id" />
+                    }
+
+                    <div class="form-group row">
+                        <label class="col-sm-3 col-form-label">ارائه‌دهنده</label>
+                        <div class="col-sm-9">
+                            <select asp-for="ProviderKey" class="form-control" required>
+                                <option value="">— انتخاب کنید —</option>
+                                <option value="digipay">دیجی‌پی</option>
+                                <option value="snapppay">اسنپ‌پی</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <div class="form-group row">
+                        <label class="col-sm-3 col-form-label">محیط</label>
+                        <div class="col-sm-9">
+                            <select asp-for="Environment" class="form-control">
+                                <option value="uat">UAT (تستی)</option>
+                                <option value="live">Live (عملیاتی)</option>
+                            </select>
+                            <small class="form-text text-muted">مخصوص دیجی‌پی. برای اسنپ‌پی از BaseUrl استفاده می‌شود.</small>
+                        </div>
+                    </div>
+
+                    <div class="form-group row">
+                        <label class="col-sm-3 col-form-label">Username</label>
+                        <div class="col-sm-9"><input asp-for="Username" class="form-control" /></div>
+                    </div>
+
+                    <div class="form-group row">
+                        <label class="col-sm-3 col-form-label">Password</label>
+                        <div class="col-sm-9"><input asp-for="Password" type="password" class="form-control" /></div>
+                    </div>
+
+                    <div class="form-group row">
+                        <label class="col-sm-3 col-form-label">Client ID</label>
+                        <div class="col-sm-9"><input asp-for="ClientId" class="form-control" /></div>
+                    </div>
+
+                    <div class="form-group row">
+                        <label class="col-sm-3 col-form-label">Client Secret</label>
+                        <div class="col-sm-9"><input asp-for="ClientSecret" type="password" class="form-control" /></div>
+                    </div>
+
+                    <div class="form-group row">
+                        <label class="col-sm-3 col-form-label">BaseUrl (اختیاری)</label>
+                        <div class="col-sm-9">
+                            <input asp-for="BaseUrlOverride" class="form-control" placeholder="https://..." />
+                            <small class="form-text text-muted">برای اسنپ‌پی؛ اگر خالی بماند، پیش‌فرض Staging استفاده می‌شود.</small>
+                        </div>
+                    </div>
+
+                    <div class="form-group row">
+                        <label class="col-sm-3 col-form-label">فعال</label>
+                        <div class="col-sm-9">
+                            <input asp-for="IsActive" type="checkbox" class="form-check-input" />
+                        </div>
+                    </div>
+                </div>
+                <div class="card-footer">
+                    <button type="submit" class="btn btn-primary">ذخیره</button>
+                </div>
+            </div>
+        </form>
+    </div>
+</section>
