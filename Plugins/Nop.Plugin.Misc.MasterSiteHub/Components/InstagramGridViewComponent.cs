@@ -46,7 +46,7 @@ namespace Nop.Plugin.Misc.MasterSiteHub.Components
             var products = await _productService.SearchProductsAsync(
                 storeId: store.Id,
                 visibleIndividuallyOnly: true,
-                orderBy: ProductSortingEnum.CreatedOnDesc,
+                orderBy: ProductSortingEnum.CreatedOn,
                 pageSize: GridProductCount);
 
             var tiles = new System.Collections.Generic.List<InstagramGridTileModel>();
@@ -58,7 +58,8 @@ namespace Nop.Plugin.Misc.MasterSiteHub.Components
                 string imageUrl;
                 if (firstPicture != null)
                 {
-                    (imageUrl, _) = await _pictureService.GetPictureUrlAsync(firstPicture, 600);
+                    var picResult = await _pictureService.GetPictureUrlAsync(firstPicture, 600);
+                    imageUrl = picResult.Url;
                 }
                 else
                 {
