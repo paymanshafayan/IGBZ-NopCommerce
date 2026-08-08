@@ -15,8 +15,15 @@ jobs:
       - uses: actions/setup-dotnet@v4
         with: { dotnet-version: 9.0.x }
       - shell: bash
+        run: cp -r igbz/Plugins/* nopCommerce/src/Plugins/
+      - working-directory: nopCommerce
+        shell: bash
         run: |
-          cp -r igbz/Plugins/* nopCommerce/src/Plugins/
+          dotnet sln src/NopCommerce.sln add src/Plugins/Nop.Plugin.Misc.MultiTenantStores/Nop.Plugin.Misc.MultiTenantStores.csproj --in-root || true
+          dotnet sln src/NopCommerce.sln add src/Plugins/Nop.Plugin.Api/Nop.Plugin.Api.csproj --in-root || true
+          dotnet sln src/NopCommerce.sln add src/Plugins/Nop.Plugin.Misc.MasterSiteHub/Nop.Plugin.Misc.MasterSiteHub.csproj --in-root || true
+          dotnet sln src/NopCommerce.sln add src/Plugins/Nop.Plugin.Misc.InstagramAssistant/Nop.Plugin.Misc.InstagramAssistant.csproj --in-root || true
+          dotnet sln src/NopCommerce.sln list | grep -iE "Api|MultiTenant|Instagram|MasterSite" || true
       - working-directory: nopCommerce
         shell: bash
         run: dotnet restore src/NopCommerce.sln --verbosity minimal
