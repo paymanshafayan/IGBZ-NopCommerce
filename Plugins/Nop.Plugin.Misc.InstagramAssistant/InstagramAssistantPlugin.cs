@@ -1,6 +1,7 @@
 namespace Nop.Plugin.Misc.InstagramAssistant
 {
     using System.Threading.Tasks;
+    using Nop.Services.Common;
     using Nop.Services.Plugins;
 
     public class InstagramAssistantPlugin : BasePlugin, IMiscPlugin

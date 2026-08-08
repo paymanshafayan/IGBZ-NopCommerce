@@ -3,6 +3,7 @@ namespace Nop.Plugin.Misc.MasterSiteHub.Infrastructure
     using System;
     using System.Collections.Generic;
     using System.Threading.Tasks;
+    using Nop.Services.Common;
     using Nop.Services.Plugins;
     using Nop.Services.Cms;
     using Nop.Plugin.Misc.MasterSiteHub.Components;

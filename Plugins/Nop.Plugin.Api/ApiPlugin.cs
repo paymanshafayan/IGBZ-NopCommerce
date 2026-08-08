@@ -1,6 +1,7 @@
 namespace Nop.Plugin.Api
 {
     using System.Threading.Tasks;
+    using Nop.Services.Common;
     using Nop.Services.Plugins;
 
     public class ApiPlugin : BasePlugin, IMiscPlugin
