@@ -7,6 +7,7 @@ namespace Nop.Plugin.Misc.MasterSiteHub.Controllers
     using Microsoft.AspNetCore.Mvc;
     using Nop.Core;
     using Nop.Core.Domain.Orders;
+    using Nop.Core.Domain.Payments;
     using Nop.Services.Catalog;
     using Nop.Services.Media;
     using Nop.Services.Orders;

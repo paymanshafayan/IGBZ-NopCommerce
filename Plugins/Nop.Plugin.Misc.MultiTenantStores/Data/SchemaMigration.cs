@@ -1,6 +1,7 @@
 namespace Nop.Plugin.Misc.MultiTenantStores.Data
 {
     using FluentMigrator;
+    using Nop.Data.Extensions;
     using Nop.Data.Migrations;
     using Nop.Plugin.Misc.MultiTenantStores.Domain;
 

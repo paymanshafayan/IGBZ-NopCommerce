@@ -4,6 +4,7 @@ namespace Nop.Plugin.Misc.MultiTenantStores.Controllers.Public
     using Microsoft.AspNetCore.Mvc;
     using Nop.Core;
     using Nop.Core.Domain.Orders;
+    using Nop.Core.Domain.Payments;
     using Nop.Services.Orders;
     using Nop.Plugin.Misc.MultiTenantStores.Domain;
     using Nop.Plugin.Misc.MultiTenantStores.Services;

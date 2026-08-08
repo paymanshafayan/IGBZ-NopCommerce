@@ -6,6 +6,7 @@ namespace Nop.Plugin.Misc.MultiTenantStores.Services
     using System.Security.Cryptography;
     using System.Threading.Tasks;
     using Nop.Core.Domain.Orders;
+    using Nop.Core.Domain.Payments;
     using Nop.Data;
     using Nop.Services.Orders;
     using Nop.Plugin.Misc.MultiTenantStores.Domain;

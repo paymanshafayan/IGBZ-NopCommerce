@@ -2,6 +2,7 @@ namespace Nop.Plugin.Misc.InstagramAssistant.Data
 {
     using FluentMigrator;
     using FluentMigrator.Builders.Create.Table;
+    using Nop.Data.Extensions;
     using Nop.Data.Mapping.Builders;
     using Nop.Data.Migrations;
     using Nop.Plugin.Misc.InstagramAssistant.Domain;
