@@ -5,6 +5,7 @@ namespace Nop.Plugin.Api.Infrastructure
     using Microsoft.AspNetCore.Builder;
     using Microsoft.Extensions.Configuration;
     using Microsoft.Extensions.DependencyInjection;
+    using Microsoft.Extensions.Logging;
     using Nop.Core.Infrastructure;
     using Nop.Plugin.Api.Services;
 

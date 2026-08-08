@@ -57,12 +57,12 @@ namespace Nop.Plugin.Api.Controllers.Admin
                 .ToDictionary(x => x.CustomerId, x => x);
 
             var pagedCustomers = await _customerService.GetAllCustomersAsync(
-                storeId: store.Id,
                 pageIndex: pageIndex,
                 pageSize: pageSize
             );
 
             var resultItems = pagedCustomers
+                .Where(c => c.RegisteredInStoreId == store.Id)
                 .Where(c => string.IsNullOrEmpty(query) ||
                             (c.Email != null && c.Email.Contains(query, StringComparison.OrdinalIgnoreCase)) ||
                             (c.Phone != null && c.Phone.Contains(query)))
