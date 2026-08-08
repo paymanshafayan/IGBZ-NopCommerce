@@ -1,23 +1,106 @@
 name: Build IGBZ Plugins on nopCommerce 4.90.6
-on: [push, pull_request, workflow_dispatch]
+
+on:
+  push:
+    branches: [ "main" ]
+  pull_request:
+    branches: [ "main" ]
+  workflow_dispatch:
 
 jobs:
   build:
     runs-on: ubuntu-latest
+    timeout-minutes: 20
+
     steps:
-      - uses: actions/checkout@v4
-        with: { path: igbz }
-      - uses: actions/checkout@v4
+      - name: Checkout IGBZ plugins (self)
+        uses: actions/checkout@v4
+        with:
+          path: igbz
+          fetch-depth: 1
+
+      - name: Checkout nopCommerce 4.90.6 source
+        uses: actions/checkout@v4
         with:
           repository: nopSolutions/nopCommerce
           ref: release-4.90.6
           path: nopCommerce
-      - uses: actions/setup-dotnet@v4
-        with: { dotnet-version: 9.0.x }
-      - run: cp -r igbz/Plugins/* nopCommerce/src/Plugins/
-      - run: dotnet sln src/NopCommerce.sln add src/Plugins/... (4 تا)
+          fetch-depth: 1
+
+      - name: Setup .NET SDK 9.0
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 9.0.x
+
+      - name: Cache NuGet
+        uses: actions/cache@v4
+        with:
+          path: ~/.nuget/packages
+          key: ${{ runner.os }}-nuget-${{ hashFiles('nopCommerce/src/**/*.csproj') }}
+          restore-keys: |
+            ${{ runner.os }}-nuget-
+
+      - name: Copy IGBZ plugins into nopCommerce src/Plugins
+        run: |
+          echo "Listing IGBZ plugins:"
+          ls -R igbz/Plugins
+          echo "Copying..."
+          cp -r igbz/Plugins/Nop.Plugin.Api nopCommerce/src/Plugins/
+          cp -r igbz/Plugins/Nop.Plugin.Misc.MultiTenantStores nopCommerce/src/Plugins/
+          cp -r igbz/Plugins/Nop.Plugin.Misc.InstagramAssistant nopCommerce/src/Plugins/
+          cp -r igbz/Plugins/Nop.Plugin.Misc.MasterSiteHub nopCommerce/src/Plugins/
+          echo "--- Target list ---"
+          ls -1 nopCommerce/src/Plugins | grep -E "Api|MultiTenant|Instagram|MasterSite"
+
+      - name: Add IGBZ plugins to NopCommerce.sln
         working-directory: nopCommerce
-      - run: dotnet restore src/NopCommerce.sln
-      - run: dotnet build MultiTenantStores, Api, MasterSiteHub, InstagramAssistant -c Release
-      - uses: actions/upload-artifact@v4
-        with: { name: igbz-plugins-4906, path: artifacts/*.zip }
+        run: |
+          dotnet sln src/NopCommerce.sln add src/Plugins/Nop.Plugin.Misc.MultiTenantStores/Nop.Plugin.Misc.MultiTenantStores.csproj --in-root || true
+          dotnet sln src/NopCommerce.sln add src/Plugins/Nop.Plugin.Misc.InstagramAssistant/Nop.Plugin.Misc.InstagramAssistant.csproj --in-root || true
+          dotnet sln src/NopCommerce.sln add src/Plugins/Nop.Plugin.Misc.MasterSiteHub/Nop.Plugin.Misc.MasterSiteHub.csproj --in-root || true
+          dotnet sln src/NopCommerce.sln add src/Plugins/Nop.Plugin.Api/Nop.Plugin.Api.csproj --in-root || true
+          dotnet sln src/NopCommerce.sln list | grep -E "Api|MultiTenant|Instagram|MasterSite"
+
+      - name: Restore NuGet packages
+        working-directory: nopCommerce
+        run: dotnet restore src/NopCommerce.sln --verbosity minimal
+
+      - name: Build IGBZ plugins only (fast path)
+        working-directory: nopCommerce
+        run: |
+          echo "Building MultiTenantStores (core) first..."
+          dotnet build src/Plugins/Nop.Plugin.Misc.MultiTenantStores/Nop.Plugin.Misc.MultiTenantStores.csproj -c Release --no-restore -v minimal
+          echo "Building dependent plugins..."
+          dotnet build src/Plugins/Nop.Plugin.Api/Nop.Plugin.Api.csproj -c Release --no-restore -v minimal
+          dotnet build src/Plugins/Nop.Plugin.Misc.MasterSiteHub/Nop.Plugin.Misc.MasterSiteHub.csproj -c Release --no-restore -v minimal
+          dotnet build src/Plugins/Nop.Plugin.Misc.InstagramAssistant/Nop.Plugin.Misc.InstagramAssistant.csproj -c Release --no-restore -v minimal
+
+      - name: Verify build outputs
+        working-directory: nopCommerce
+        run: |
+          ls -R src/Presentation/Nop.Web/Plugins | head -n 200
+          test -f src/Presentation/Nop.Web/Plugins/Misc.MultiTenantStores/Nop.Plugin.Misc.MultiTenantStores.dll
+          test -f src/Presentation/Nop.Web/Plugins/Api/Nop.Plugin.Api.dll
+          test -f src/Presentation/Nop.Web/Plugins/Misc.MasterSiteHub/Nop.Plugin.Misc.MasterSiteHub.dll
+          test -f src/Presentation/Nop.Web/Plugins/Misc.InstagramAssistant/Nop.Plugin.Misc.InstagramAssistant.dll
+          echo "All IGBZ plugins built successfully."
+
+      - name: Package plugins as zip
+        working-directory: nopCommerce
+        run: |
+          mkdir -p ../artifacts
+          cd src/Presentation/Nop.Web/Plugins
+          zip -r ../../../../../artifacts/Misc.MultiTenantStores.zip Misc.MultiTenantStores
+          zip -r ../../../../../artifacts/Misc.InstagramAssistant.zip Misc.InstagramAssistant
+          zip -r ../../../../../artifacts/Misc.MasterSiteHub.zip Misc.MasterSiteHub
+          zip -r ../../../../../artifacts/Api.zip Api
+          zip -r ../../../../../artifacts/IGBZ-All-Plugins.zip Misc.MultiTenantStores Misc.InstagramAssistant Misc.MasterSiteHub Api
+          ls -lh ../../../../../artifacts/
+
+      - name: Upload plugin artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: igbz-plugins-4906
+          path: artifacts/*.zip
+          if-no-files-found: error
+          retention-days: 15
