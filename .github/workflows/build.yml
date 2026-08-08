@@ -1,0 +1,23 @@
+name: Build IGBZ Plugins on nopCommerce 4.90.6
+on: [push, pull_request, workflow_dispatch]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with: { path: igbz }
+      - uses: actions/checkout@v4
+        with:
+          repository: nopSolutions/nopCommerce
+          ref: release-4.90.6
+          path: nopCommerce
+      - uses: actions/setup-dotnet@v4
+        with: { dotnet-version: 9.0.x }
+      - run: cp -r igbz/Plugins/* nopCommerce/src/Plugins/
+      - run: dotnet sln src/NopCommerce.sln add src/Plugins/... (4 تا)
+        working-directory: nopCommerce
+      - run: dotnet restore src/NopCommerce.sln
+      - run: dotnet build MultiTenantStores, Api, MasterSiteHub, InstagramAssistant -c Release
+      - uses: actions/upload-artifact@v4
+        with: { name: igbz-plugins-4906, path: artifacts/*.zip }
