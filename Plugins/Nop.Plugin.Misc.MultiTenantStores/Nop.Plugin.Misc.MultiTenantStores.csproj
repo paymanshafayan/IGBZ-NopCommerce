@@ -8,6 +8,11 @@
     <ImplicitUsings>enable</ImplicitUsings>
   </PropertyGroup>
 
+  <PropertyGroup>
+    <!-- Fallback وقتی پلاگین مستقیماً با dotnet build روی csproj ساخته می‌شود (بدون sln) – برای CI و بیلد تکی -->
+    <SolutionDir Condition="'$(SolutionDir)' == ''">..\..\</SolutionDir>
+  </PropertyGroup>
+
   <ItemGroup>
     <None Remove="plugin.json" />
     <None Remove="Views\_ViewImports.cshtml" />

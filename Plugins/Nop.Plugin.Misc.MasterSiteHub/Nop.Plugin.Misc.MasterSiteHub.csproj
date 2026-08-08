@@ -8,6 +8,10 @@
     <ImplicitUsings>enable</ImplicitUsings>
   </PropertyGroup>
 
+  <PropertyGroup>
+    <SolutionDir Condition="'$(SolutionDir)' == ''">..\..\</SolutionDir>
+  </PropertyGroup>
+
   <ItemGroup>
     <None Remove="plugin.json" />
     <None Remove="Views\_ViewImports.cshtml" />
