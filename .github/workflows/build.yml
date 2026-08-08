@@ -9,9 +9,8 @@ on:
 
 jobs:
   build:
-    # nopCommerce official CI uses windows-latest – more compatible for plugins
     runs-on: windows-latest
-    timeout-minutes: 30
+    timeout-minutes: 40
 
     steps:
       - name: Checkout IGBZ plugins (self)
@@ -32,74 +31,76 @@ jobs:
         uses: actions/setup-dotnet@v4
         with:
           dotnet-version: 9.0.x
-          cache: true
-          cache-dependency-path: nopCommerce/src/**/*.csproj
+          cache: false
 
       - name: Show dotnet info
-        run: dotnet --info
+        run: |
+          dotnet --info
+          dotnet nuget list source
 
       - name: Copy IGBZ plugins into nopCommerce src/Plugins
         shell: bash
         run: |
-          echo "Listing IGBZ plugins:"
-          ls -R igbz/Plugins
-          echo "Copying to nopCommerce/src/Plugins ..."
+          ls -R igbz/Plugins | head -n 100
           cp -r igbz/Plugins/Nop.Plugin.Api nopCommerce/src/Plugins/
           cp -r igbz/Plugins/Nop.Plugin.Misc.MultiTenantStores nopCommerce/src/Plugins/
           cp -r igbz/Plugins/Nop.Plugin.Misc.InstagramAssistant nopCommerce/src/Plugins/
           cp -r igbz/Plugins/Nop.Plugin.Misc.MasterSiteHub nopCommerce/src/Plugins/
-          ls -1 nopCommerce/src/Plugins | grep -E "Api|MultiTenant|Instagram|MasterSite" || dir nopCommerce/src/Plugins | findstr /i "Api MultiTenant Instagram MasterSite"
+          ls -1 nopCommerce/src/Plugins | grep -iE "Api|MultiTenant|Instagram|MasterSite"
 
       - name: Add IGBZ plugins to NopCommerce.sln
         working-directory: nopCommerce
+        shell: bash
         run: |
-          dotnet sln src/NopCommerce.sln add src/Plugins/Nop.Plugin.Misc.MultiTenantStores/Nop.Plugin.Misc.MultiTenantStores.csproj --in-root || echo "already in sln"
-          dotnet sln src/NopCommerce.sln add src/Plugins/Nop.Plugin.Misc.InstagramAssistant/Nop.Plugin.Misc.InstagramAssistant.csproj --in-root || echo "already in sln"
-          dotnet sln src/NopCommerce.sln add src/Plugins/Nop.Plugin.Misc.MasterSiteHub/Nop.Plugin.Misc.MasterSiteHub.csproj --in-root || echo "already in sln"
-          dotnet sln src/NopCommerce.sln add src/Plugins/Nop.Plugin.Api/Nop.Plugin.Api.csproj --in-root || echo "already in sln"
-          dotnet sln src/NopCommerce.sln list | findstr /i "Api MultiTenant Instagram MasterSite"
+          dotnet sln src/NopCommerce.sln add src/Plugins/Nop.Plugin.Misc.MultiTenantStores/Nop.Plugin.Misc.MultiTenantStores.csproj --in-root || echo "already"
+          dotnet sln src/NopCommerce.sln add src/Plugins/Nop.Plugin.Misc.InstagramAssistant/Nop.Plugin.Misc.InstagramAssistant.csproj --in-root || echo "already"
+          dotnet sln src/NopCommerce.sln add src/Plugins/Nop.Plugin.Misc.MasterSiteHub/Nop.Plugin.Misc.MasterSiteHub.csproj --in-root || echo "already"
+          dotnet sln src/NopCommerce.sln add src/Plugins/Nop.Plugin.Api/Nop.Plugin.Api.csproj --in-root || echo "already"
+          dotnet sln src/NopCommerce.sln list | grep -iE "Api|MultiTenant|Instagram|MasterSite" || true
 
-      - name: Restore NuGet (verbose)
+      - name: Restore (whole sln) with detailed log capture
         working-directory: nopCommerce
-        # on failure, also try detailed log and restore per-plugin for diagnostics
+        shell: bash
         run: |
-          echo "=== dotnet nuget list source ==="
-          dotnet nuget list source
-          echo "=== Restore whole solution (normal) ==="
-          dotnet restore src/NopCommerce.sln --verbosity minimal || (
-            echo "=== Whole-sln restore failed, trying detailed ==="
-            dotnet restore src/NopCommerce.sln --verbosity normal
-            echo "=== Trying plugin-only restore for diagnostics ==="
-            dotnet restore src/Plugins/Nop.Plugin.Misc.MultiTenantStores/Nop.Plugin.Misc.MultiTenantStores.csproj --verbosity normal || true
-            exit 1
-          )
+          set -o pipefail
+          echo "=== Attempting restore whole sln ==="
+          dotnet restore src/NopCommerce.sln --verbosity normal 2>&1 | tee ../restore-sln.log
+          EXIT_CODE=${PIPESTATUS[0]}
+          echo "Restore exit code: $EXIT_CODE"
+          if [ $EXIT_CODE -ne 0 ]; then
+            echo "=== FULL LOG (last 500 lines) ==="
+            tail -n 500 ../restore-sln.log
+            echo "=== Trying to restore only IGBZ plugins individually for diagnosis ==="
+            echo "--- MultiTenantStores ---"
+            dotnet restore src/Plugins/Nop.Plugin.Misc.MultiTenantStores/Nop.Plugin.Misc.MultiTenantStores.csproj --verbosity normal 2>&1 | tee ../restore-mts.log || true
+            echo "--- Api ---"
+            dotnet restore src/Plugins/Nop.Plugin.Api/Nop.Plugin.Api.csproj --verbosity normal 2>&1 | tee ../restore-api.log || true
+            echo "--- MasterSiteHub ---"
+            dotnet restore src/Plugins/Nop.Plugin.Misc.MasterSiteHub/Nop.Plugin.Misc.MasterSiteHub.csproj --verbosity normal 2>&1 | tee ../restore-msh.log || true
+            echo "--- InstagramAssistant ---"
+            dotnet restore src/Plugins/Nop.Plugin.Misc.InstagramAssistant/Nop.Plugin.Misc.InstagramAssistant.csproj --verbosity normal 2>&1 | tee ../restore-ig.log || true
+            exit $EXIT_CODE
+          fi
 
       - name: Build IGBZ plugins (core first)
-        working-directory: nopCommerce
-        run: |
-          echo "Building MultiTenantStores..."
-          dotnet build src/Plugins/Nop.Plugin.Misc.MultiTenantStores/Nop.Plugin.Misc.MultiTenantStores.csproj -c Release --no-restore -v minimal
-          echo "Building dependents..."
-          dotnet build src/Plugins/Nop.Plugin.Api/Nop.Plugin.Api.csproj -c Release --no-restore -v minimal
-          dotnet build src/Plugins/Nop.Plugin.Misc.MasterSiteHub/Nop.Plugin.Misc.MasterSiteHub.csproj -c Release --no-restore -v minimal
-          dotnet build src/Plugins/Nop.Plugin.Misc.InstagramAssistant/Nop.Plugin.Misc.InstagramAssistant.csproj -c Release --no-restore -v minimal
-
-      - name: Verify build outputs
+        if: success()
         working-directory: nopCommerce
         shell: bash
         run: |
-          echo "Checking output folders..."
-          ls -R src/Presentation/Nop.Web/Plugins | head -n 300 || dir src/Presentation/Nop.Web/Plugins /s
-          test -f src/Presentation/Nop.Web/Plugins/Misc.MultiTenantStores/Nop.Plugin.Misc.MultiTenantStores.dll || (echo "MultiTenantStores.dll not found" && ls src/Presentation/Nop.Web/Plugins/Misc.MultiTenantStores && exit 1)
-          test -f src/Presentation/Nop.Web/Plugins/Api/Nop.Plugin.Api.dll || (echo "Api.dll not found" && exit 1)
-          test -f src/Presentation/Nop.Web/Plugins/Misc.MasterSiteHub/Nop.Plugin.Misc.MasterSiteHub.dll || (echo "MasterSiteHub.dll not found" && exit 1)
-          test -f src/Presentation/Nop.Web/Plugins/Misc.InstagramAssistant/Nop.Plugin.Misc.InstagramAssistant.dll || (echo "InstagramAssistant.dll not found" && exit 1)
-          echo "All IGBZ plugins built successfully."
+          set -o pipefail
+          dotnet build src/Plugins/Nop.Plugin.Misc.MultiTenantStores/Nop.Plugin.Misc.MultiTenantStores.csproj -c Release --no-restore --verbosity minimal 2>&1 | tee ../build-mts.log
+          dotnet build src/Plugins/Nop.Plugin.Api/Nop.Plugin.Api.csproj -c Release --no-restore --verbosity minimal 2>&1 | tee ../build-api.log
+          dotnet build src/Plugins/Nop.Plugin.Misc.MasterSiteHub/Nop.Plugin.Misc.MasterSiteHub.csproj -c Release --no-restore --verbosity minimal 2>&1 | tee ../build-msh.log
+          dotnet build src/Plugins/Nop.Plugin.Misc.InstagramAssistant/Nop.Plugin.Misc.InstagramAssistant.csproj -c Release --no-restore --verbosity minimal 2>&1 | tee ../build-ig.log
 
-      - name: Package plugins as zip
+      - name: Verify + Package
+        if: success()
         working-directory: nopCommerce
         shell: bash
         run: |
+          ls -R src/Presentation/Nop.Web/Plugins | head -n 400
+          ls -lh src/Presentation/Nop.Web/Plugins/Misc.MultiTenantStores/
+          ls -lh src/Presentation/Nop.Web/Plugins/Api/
           mkdir -p ../artifacts
           cd src/Presentation/Nop.Web/Plugins
           7z a -tzip ../../../../../artifacts/Misc.MultiTenantStores.zip Misc.MultiTenantStores
@@ -107,12 +108,24 @@ jobs:
           7z a -tzip ../../../../../artifacts/Misc.MasterSiteHub.zip Misc.MasterSiteHub
           7z a -tzip ../../../../../artifacts/Api.zip Api
           7z a -tzip ../../../../../artifacts/IGBZ-All-Plugins.zip Misc.MultiTenantStores Misc.InstagramAssistant Misc.MasterSiteHub Api
-          ls -lh ../../../../../artifacts/ || dir ../../../../../artifacts/
+          ls -lh ../../../../../artifacts/
 
-      - name: Upload plugin artifacts
+      - name: Upload plugin artifacts (on success)
+        if: success()
         uses: actions/upload-artifact@v4
         with:
           name: igbz-plugins-4906
           path: artifacts/*.zip
           if-no-files-found: error
           retention-days: 15
+
+      - name: Upload restore/build logs (on failure)
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: restore-logs
+          path: |
+            restore-*.log
+            build-*.log
+          if-no-files-found: warn
+          retention-days: 5
