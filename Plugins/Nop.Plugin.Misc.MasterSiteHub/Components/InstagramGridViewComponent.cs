@@ -4,6 +4,7 @@ namespace Nop.Plugin.Misc.MasterSiteHub.Components
     using System.Threading.Tasks;
     using Microsoft.AspNetCore.Mvc;
     using Nop.Core;
+    using Nop.Core.Domain.Catalog;
     using Nop.Services.Catalog;
     using Nop.Services.Media;
     using Nop.Web.Framework.Components;
