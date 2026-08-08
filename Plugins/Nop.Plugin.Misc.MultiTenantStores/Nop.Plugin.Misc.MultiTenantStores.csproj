@@ -69,9 +69,9 @@
       Microsoft.IdentityModel.* که خودِ nopCommerce 4.90.6 از قبل استفاده می‌کند را بررسی کنید
       (بهتر است نسخهٔ یکسان با بستهٔ داخلی nopCommerce انتخاب شود تا تعارض Assembly رخ ندهد).
     -->
-    <PackageReference Include="Microsoft.AspNetCore.Authentication.JwtBearer" Version="9.0.0" />
+    <PackageReference Include="Microsoft.AspNetCore.Authentication.JwtBearer" Version="9.0.4" />
     <PackageReference Include="System.IdentityModel.Tokens.Jwt" Version="8.2.1" />
-    <PackageReference Include="Microsoft.Extensions.Caching.Memory" Version="9.0.0" />
+    <PackageReference Include="Microsoft.Extensions.Caching.Memory" Version="9.0.4" />
   </ItemGroup>
 
   <!-- This target execute after "Build" target -->
