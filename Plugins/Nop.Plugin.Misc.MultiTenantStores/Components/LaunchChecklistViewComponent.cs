@@ -28,7 +28,7 @@ namespace Nop.Plugin.Misc.MultiTenantStores.Components
         public async Task<IViewComponentResult> InvokeAsync(string widgetZone, object additionalData)
         {
             // فقط روی داشبورد ادمین (Home/Index در Area=Admin) نمایش داده شود، نه همهٔ صفحات ادمین
-            var routeValues = ViewComponentContext.HttpContext.Request.RouteValues;
+            var routeValues = RouteData.Values;
             var isAdminDashboard =
                 string.Equals(routeValues["area"]?.ToString(), "Admin", System.StringComparison.OrdinalIgnoreCase)
                 && string.Equals(routeValues["controller"]?.ToString(), "Home", System.StringComparison.OrdinalIgnoreCase)
